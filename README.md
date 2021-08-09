@@ -97,7 +97,7 @@ int main()
 
 
 ## <font size=4>实验</font>
-### <font size=4>数据集</font>
+**数据集**
 | 名称       | 分类/回归         |来源        |样本数     |特征数       | 类别数    |
 |:-----------| :-------------|:-------------|:-------------|:-------------|:-------------|
 |chess-krvk|classification|[UCI](http://archive.ics.uci.edu/ml/datasets/Chess+%28King-Rook+vs.+King%29)|28056|6|18|
@@ -124,17 +124,14 @@ int main()
 1. Bike-Sharing: 原数据集去掉第1、2列 
 2. Parkinsons_Telemonitoring: 预测输出(output)是**2**维的。将原数据集第1列（subject number）去掉，UCI网站上记录“Number of Attributes：26”但根据下载的数据集只有22维（包括2维output)
 
-**参数**
+**参数**  
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;下一小节表格中“参数”列为 *[TreesNum, SplitVariables, MaxDepth, MinSamplesSplit]* （randomness均为1，即经典RF）。实验并没有对参数进行调优，而是根据经验选取了个人认为比较合理的参数组合。实验目的一方面是为了验证算法实现的正确性，另一方面也想说明RF对参数敏感度较低（相比SVM）。
 
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;使用2.2中参数，下一小节表格中“参数”列为 *[TreesNum, SplitVariables, MaxDepth, MinSamplesSplit]* （randomness均为1，即经典RF）。实验并没有对参数进行调优，而是根据经验选取了个人认为比较合理的参数组合。实验目的一方面是为了验证算法实现的正确性，另一方面也想说明RF对参数敏感度较低（相比SVM）。
-
-**结果**
-
+**结果**  
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;如果没有特殊说明，分类和回归问题的实验结果分别通过out-of-bag分类错误率（%）和out-of-bag 均方误差(Mean Square Error (MSE))来统计，结果运行10次取平均和标准差。可以看到，大多数数据集都采用了默认的参数，也能达到较理想效果。
 
-
-| 数据集       | 参数        |oob error(%) mse    |分类/回归    |
-|:-----------| :-------------|:-------------|:-------------|:-------------|:-------------|
+| 数据集       | 参数        |oob error(%)/mse    |分类/回归    |
+|:-----------| :-------------|:-------------|:-------------|
 |chess-krvk|[500, 2<sup>*</sup>, 40, 5]|16.46636±0.07493|C|
 |Gisette|[200, 70<sup>*</sup>, 40, 5]|2.932105±0.10090(oob)<br>3.010±0.13333(test set)|C|
 | ionosphere | [200, 5<sup>*</sup>, 40, 5]| 6.325±0.213|C|
@@ -154,22 +151,17 @@ int main()
 |Housing|[200, 4<sup>#</sup>, 40, 5]|10.077±0.1923|R|
 |Superconductivty|[200, 27<sup>#</sup>, 40, 5]|81.4527±0.2781|R|
 
-*: 表示使用分类森林默认的$\sqrt{variable\_num}$作为SplitVariables参数;
+*: 表示使用分类森林默认的$\sqrt{variable\_num}$作为SplitVariables参数;  
 #:表示使用回归森林默认的​​$\frac {variable\_num\_x}3$作为SplitVariables参数
 
 ## <font size=4>分析</font>
-**参数影响**
-
+**参数影响**  
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;通常RF在默认参数设定下也能取得较理想的效果，通过对参数（见2.2节）调优可以获得更佳的分类/回归效果。一般可以对TreesNum和SplitVariables进行调优。通常认为增加TreesNum会使泛化误差下降（当然也有特例）。如下图，展示了随着树增加，oob error呈现下降的趋势。
 ![在这里插入图片描述](https://img-blog.csdnimg.cn/20210621100844939.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L2d4ZjEwMjc=,size_16,color_FFFFFF,t_70#pic_center)
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;SplitVariables是控制RF随机性的主要参数，当它增加时树之间的关联性也随之增加，而关联性增加会导致分类/回归误差提高[<sup>[2]</sup>](#refer-anchor-2)。从可调性(Tunability)角度考虑，调节SplitVariables对性能提升的贡献是最大的。而SplitVariables选择默认设定时，通常也能取得不错的效果。
->The correlation between any two trees in the forest. Increasing the correlation increases the forest error rate.[<sup>[2]</sup>](#refer-anchor-2)
->In ranger(random forest) mtry is the most tunable parameter which is already common knowledge and is implemented in software packages such as caret.[<sup>[6]</sup>](#refer-anchor-2)
 
-下图为pendigits数据集上，不同SplitVariables（样本为16维，TreesNum=500）参数下的分类oob error。
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;SplitVariables是控制RF随机性的主要参数，当它增加时树之间的关联性也随之增加，而关联性增加会导致分类/回归误差提高[<sup>[2]</sup>](#refer-anchor-2)。从可调性(Tunability)角度考虑，调节SplitVariables对性能提升的贡献是最大的。而SplitVariables选择默认设定时，通常也能取得不错的效果。下图为pendigits数据集上，不同SplitVariables（样本为16维，TreesNum=500）参数下的分类oob error。
 ![在这里插入图片描述](https://img-blog.csdnimg.cn/20210622160810643.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L2d4ZjEwMjc=,size_16,color_FFFFFF,t_70#pic_center)
 
-**特征重要性**
-
+**特征重要性**  
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;特征重要性(variable importance)的评估是RF“自带”的一个特性。采用oob数据的特征随机交换的方法来估计特征重要性。对于数据集"waveform"，结果如下图所示，可见后一半特征的重要性几乎为0，这是因为waveform的后19维特征是随机噪声，因此variable importance计算结果符合上述情况。
 ![在这里插入图片描述](https://img-blog.csdnimg.cn/2021062316005288.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L2d4ZjEwMjc=,size_16,color_FFFFFF,t_70#pic_center)
