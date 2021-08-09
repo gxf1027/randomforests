@@ -3,7 +3,8 @@ C++ implementation of random forests
 
 1. 适用于分类和回归
 2. off-the-shelf，即插即用
-3. 可保存训练完成的模型至本地 (XML格式，可读性强)，也可读取本地模型进行预测<sup>*</sup>  
+3. 支持variable importance evaluation
+4. 可保存训练完成的模型至本地 (XML格式，可读性强)，也可读取本地模型进行预测<sup>*</sup>  
 <font size=2>（使用[tinyxml2](https://github.com/leethomason/tinyxml2)库支持xml文件的读写）</font>
 ## <font size=4>使用</font>
 
@@ -20,7 +21,7 @@ using namespace std;
 int main()
 {
     // read training samples if necessary
-    char filename[500] = "./DataSet/Classification/pendigits.tra";
+    char filename[500] = "./dataset/classification/pendigits.tra";
     float** data = NULL;
     int* label = NULL;
     Dataset_info_C datainfo;
@@ -59,7 +60,7 @@ using namespace std;
 int main()
 {
     // read training samples if necessary 
-    char filename[500] = "./DataSet/Regression/Housing_Data_Set-R.txt"; 
+    char filename[500] = "./dataSet/regression/Housing_Data_Set-R.txt"; 
     float** data = NULL;
     float** target = NULL;
     Dataset_info_R datainfo;
