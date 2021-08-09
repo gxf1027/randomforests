@@ -1,6 +1,10 @@
 # randomforests
 C++ implementation of random forests
 
+1. 适用于分类和回归
+2. off-the-shelf，即插即用
+3. 可保存训练完成的模型至本地 (XML格式，可读性强)，也可读取本地模型进行预测<sup>*</sup>  
+<font size=2>（使用[tinyxml2](https://github.com/leethomason/tinyxml2)库支持xml文件的读写）</font>
 ## <font size=4>使用</font>
 
 从本地数据文件读入数据集进行训练，计算oob-error(oob-mse)，并保存forest到本地。
