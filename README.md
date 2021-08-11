@@ -155,6 +155,7 @@ int main()
 |elevators|[200, 10/18, 40, 5]|7.1859E-06±3.15264E-08|R|
 |Housing|[200, 4<sup>#</sup>, 40, 5]|10.077±0.1923|R|
 |Superconductivty|[200, 27<sup>#</sup>, 40, 5]|81.4527±0.2781|R|
+|YearPredictionMSD|[100, 30<sup>#</sup>, 40, 50]|83.1219±0.05236|R|
 
 *: 表示使用分类森林默认的$\sqrt{variable\_num}$作为SplitVariables参数;  
 #:表示使用回归森林默认的​​$\frac {variable\_num\_x}3$作为SplitVariables参数
