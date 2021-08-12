@@ -1844,14 +1844,12 @@ struct LoquatCTreeNode* GrowLoquatCTreeNodeRecursively(float **data, int *label,
 	treeNode->leaf_node_label = -1;
 	treeNode->leaf_confidence = 0;
 	treeNode->arrival_samples_num = arrival_num;
-	treeNode->samples_index = new int [arrival_num];
-	assert( NULL != treeNode->samples_index );
-	//memcpy_s(treeNode->samples_index, arrival_num*sizeof(int), sample_arrival_index, arrival_num*sizeof(int));
-	memcpy(treeNode->samples_index, sample_arrival_index, arrival_num*sizeof(int));
-	if( treeNode->depth != 0 ) // treeNode->depth==0 为rootnode，它对应的是inbag_sample空间不应该被清除
+	treeNode->samples_index = sample_arrival_index; 
+
+	if (0 == treeNode->depth)
 	{
-		delete [] sample_arrival_index; // 在这里清除可以避免递归使分配的空间
-		sample_arrival_index = NULL;
+		treeNode->samples_index = new int [arrival_num];
+		memcpy(treeNode->samples_index, sample_arrival_index, arrival_num * sizeof(int));
 	}
 
 	// 以上用到达样本生成一个新节点，以下开始判断这个节点是否可以再分裂
