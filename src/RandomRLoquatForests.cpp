@@ -863,14 +863,14 @@ int _SplitOnRLoquatNodeCompletelySearchBySort2D(float** data, float** target, in
 			b = covMatCum01[start] - targetCum1[start] * targetCum2[start] / lcount;
 			c = b;
 			d = covMatCum11[start] - targetCum2[start] * targetCum2[start] / lcount;
-			lCov = (a * d - b * c) / lcount;
+			lCov = (a * d - b * c) / (1.0*lcount * lcount);
 
 			// 计算2X2协方差矩阵的行列式
 			a = (covMatCum00[end] - covMatCum00[start]) - (targetCum1[end] - targetCum1[start]) * (targetCum1[end] - targetCum1[start]) / rcount;
 			b = (covMatCum01[end] - covMatCum01[start]) - (targetCum1[end] - targetCum1[start]) * (targetCum2[end] - targetCum2[start]) / rcount;
 			c = b;
 			d = (covMatCum11[end] - covMatCum11[start]) - (targetCum2[end] - targetCum2[start]) * (targetCum2[end] - targetCum2[start]) / rcount;
-			rCov = (a * d - b * c) / rcount;
+			rCov = (a * d - b * c) / (1.0*rcount * rcount);
 
 			gini_like = (lcount * lCov + rcount * rCov) / innode_num;
 
