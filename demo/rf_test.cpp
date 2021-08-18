@@ -11,9 +11,10 @@ Contact: gxf1027@126.com
 #include <iomanip>
 using namespace std;
 
-#include "../src/RandomCLoquatForests.h"
-#include "../src/RandomRLoquatForests.h"
-#include "../src/UserInteraction2.h"
+#include "SharedRoutines.h"
+#include "RandomCLoquatForests.h"
+#include "RandomRLoquatForests.h"
+#include "UserInteraction2.h"
 
 int command(const char* cd)
 {
@@ -210,7 +211,31 @@ int main(int argc, char** argv)
 			cout << mean_squared_error[j] << ", ";
 		}
 		cout << endl;
-
+		if (chCommand[2] != NULL) // -o result.out
+		{
+			ofstream res(chCommand[2]);
+			res << "target\ttarget(predicted)" << endl;
+			for (int i = 0; i < datainfo_r.samples_num; i++)
+			{
+				res << "[";
+				for (int j=0; j<datainfo_r.variables_num_y; j++)
+				{
+					res << target[i][j];
+					if (j!=datainfo_r.variables_num_y-1)
+						res <<',';
+				}
+				res<< "]"<<"\t"<<"[";
+				for (int j=0; j<datainfo_r.variables_num_y; j++)
+				{
+					res << target_predict[i][j];
+					if (j!=datainfo_r.variables_num_y-1)
+						res <<',';
+				}
+				res<< "]" <<endl;
+			}
+			
+			res.close();
+		}
 		break;
 	case 0:
 	default:
