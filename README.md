@@ -154,6 +154,7 @@ int main()
 |Combined_Cycle_Power_Plant|[200, 2/4, 40, 5]|9.94693±0.031153|R|
 |elevators|[200, 10/18, 40, 5]|7.1859E-06±3.15264E-08|R|
 |Housing|[200, 4<sup>#</sup>, 40, 5]|10.077±0.1923|R|
+|Parkinsons_Telemonitoring<sup>3</sup>|[200,19,40,5]|[1.437, 2.523]±[0.01706, 0.03033]|R|
 |Superconductivty|[200, 27<sup>#</sup>, 40, 5]|81.4527±0.2781|R|
 |YearPredictionMSD|[100, 30<sup>#</sup>, 40, 50]|83.1219±0.05236|R|
 
