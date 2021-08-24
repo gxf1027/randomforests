@@ -1,5 +1,6 @@
 # randomforests
-C++ implementation of random forests
+C++ implementation of random forests  
+详细说明请前往CSDN [Random Forests C++实现：细节，使用与实验](https://blog.csdn.net/gxf1027/article/details/117064775)
 
 1. 适用于分类和回归，支持回归的多维输出
 2. 支持3种随机性
