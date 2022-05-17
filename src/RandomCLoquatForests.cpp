@@ -1065,10 +1065,14 @@ int SplitOnDLoquatNode2(float** data, int* label, int samples_num, int variables
 	float* maxv = NULL, * minv = NULL, * step = NULL, * itoa = NULL;
 	float splitv = 0;
 	double lgini, rgini, gini, mingini = 1e38;
-	maxv = new float[Mvariable];
+	/*maxv = new float[Mvariable];
 	minv = new float[Mvariable];
 	step = new float[Mvariable];
-	itoa = new float[Mvariable];
+	itoa = new float[Mvariable];*/
+	maxv = new float[Mvariable * 4];
+	minv = maxv + Mvariable;
+	step = maxv + 2 * Mvariable;
+	itoa = maxv + 3 * Mvariable;
 	int var_index;
 
 	// randomly select the variables(attribute) candidate choosing to split on the node
@@ -1266,9 +1270,9 @@ int SplitOnDLoquatNode2(float** data, int* label, int samples_num, int variables
 
 	delete[] selSplitIndex;
 	delete[] maxv;
-	delete[] minv;
+	/*delete[] minv;
 	delete[] step;
-	delete[] itoa;
+	delete[] itoa;*/
 	delete[] lsubNodeClassnum;
 	delete[] rsubNodeClassnum;
 	return rv;
@@ -1921,12 +1925,13 @@ struct LoquatCTreeNode* GrowLoquatCTreeNodeRecursively(float **data, int *label,
 		// tm1 += (clock() - startTime);
 
 		int leftsubnode_samples_num = 0, rightsubnode_samples_num = 0;
-		int *subnode_samples_queue = new int[treeNode->arrival_samples_num];
-		assert(subnode_samples_queue);
+		int* subnode_samples_queue = NULL; // new int[treeNode->arrival_samples_num];
+		//assert(subnode_samples_queue);
 
 		//0607
 		if (treeNode->split_variable_index >= 0)
 		{
+			subnode_samples_queue = new int[treeNode->arrival_samples_num];
 			for (int kk = 0; kk < treeNode->arrival_samples_num; kk++)
 			{
 				index = treeNode->samples_index[kk];
@@ -1950,7 +1955,8 @@ struct LoquatCTreeNode* GrowLoquatCTreeNodeRecursively(float **data, int *label,
 			treeNode->pSubNode[1] = NULL;
 			MaximumConfienceClassLabel(treeNode->class_distribution, total_classes_num, treeNode->leaf_node_label, NULL);
 			treeNode->leaf_confidence = treeNode->class_distribution[treeNode->leaf_node_label];
-			delete [] subnode_samples_queue;//!!!!!!!!!!!!!!!!!!!
+			if (NULL != subnode_samples_queue)
+			    delete [] subnode_samples_queue;//!!!!!!!!!!!!!!!!!!!
 			return treeNode;
 		}
 
@@ -1961,7 +1967,8 @@ struct LoquatCTreeNode* GrowLoquatCTreeNodeRecursively(float **data, int *label,
 		memcpy(leftsubnode_index, subnode_samples_queue, leftsubnode_samples_num*sizeof(int));
 		//memcpy_s(rightsubnode_index, rightsubnode_samples_num*sizeof(int), subnode_samples_queue+leftsubnode_samples_num, rightsubnode_samples_num*sizeof(int));
 		memcpy(rightsubnode_index, subnode_samples_queue+leftsubnode_samples_num, rightsubnode_samples_num*sizeof(int));
-		delete [] subnode_samples_queue;
+		if (NULL != subnode_samples_queue)
+			delete [] subnode_samples_queue;
 
 		GrowNodeInput input = *pInputParam;
 		input.parent_depth = treeNode->depth;// error happened here ต๗สิมหบÜพร!
