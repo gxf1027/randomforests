@@ -1,11 +1,14 @@
 # randomforests
-C++ implementation of random forests
+C++ implementation of random forests  
+详细说明请前往CSDN [Random Forests C++实现：细节，使用与实验](https://blog.csdn.net/gxf1027/article/details/117064775)
 
-1. 适用于分类和回归
-2. off-the-shelf，即插即用
-3. 支持variable importance evaluation
-4. 可保存训练完成的模型至本地 (XML格式，可读性强)，也可读取本地模型进行预测<sup>*</sup>  
+1. 适用于分类和回归，支持回归的多维输出
+2. 支持3种随机性
+3. off-the-shelf，即插即用
+4. 支持variable importance evaluation
+5. 可保存训练完成的模型至本地 (XML格式，可读性强)，也可读取本地模型进行预测<sup>*</sup>  
 <font size=2>（使用[tinyxml2](https://github.com/leethomason/tinyxml2)库支持xml文件的读写）</font>
+
 ## <font size=4>使用</font>
 
 从本地数据文件读入数据集进行训练，计算oob-error(oob-mse)，并保存forest到本地。
@@ -154,6 +157,7 @@ int main()
 |Combined_Cycle_Power_Plant|[200, 2/4, 40, 5]|9.94693±0.031153|R|
 |elevators|[200, 10/18, 40, 5]|7.1859E-06±3.15264E-08|R|
 |Housing|[200, 4<sup>#</sup>, 40, 5]|10.077±0.1923|R|
+|Parkinsons_Telemonitoring<sup>3</sup>|[200,19,40,5]|[1.437, 2.523]±[0.01706, 0.03033]|R|
 |Superconductivty|[200, 27<sup>#</sup>, 40, 5]|81.4527±0.2781|R|
 |YearPredictionMSD|[100, 30<sup>#</sup>, 40, 50]|83.1219±0.05236|R|
 
