@@ -568,7 +568,7 @@ void normalizeMinMax(const float **data, const int sample_num, const int dim,  f
 	delete [] minv;
 }
 
-int ExtremeRandomlySplitOnRLoquatNode(float** data, int variables_num_x, int* innode_samples_index, int innode_num, int& split_variable_index, float& split_value)
+int ExtremeRandomlySplitOnRLoquatNode(float** data, int variables_num_x, const int* innode_samples_index, int innode_num, int& split_variable_index, float& split_value)
 {
 	int j, index;
 	float maxv = 0.f, minv = 0.f;
@@ -623,7 +623,7 @@ int _cmp_r(const void* a, const void* b)
 
 // 采用类积分直方图的方式，在1维target(output)情况下加速
 int _SplitOnRLoquatNodeCompletelySearchBySort1D(float** data, float** target, int variables_num_x, int variables_num_y,
-										int* innode_samples_index, int innode_num, int Mvariable, int& split_variable_index, float& split_value)
+										const int* innode_samples_index, int innode_num, int Mvariable, int& split_variable_index, float& split_value)
 {
 	assert(variables_num_y == 1);
 
@@ -767,7 +767,7 @@ int _SplitOnRLoquatNodeCompletelySearchBySort1D(float** data, float** target, in
 }
 
 int _SplitOnRLoquatNodeCompletelySearchBySort2D(float** data, float** target, int variables_num_x, int variables_num_y,
-	int* innode_samples_index, int innode_num, int Mvariable, int& split_variable_index, float& split_value)
+						const int* innode_samples_index, int innode_num, int Mvariable, int& split_variable_index, float& split_value)
 {
 	assert(variables_num_y == 2);
 
@@ -931,7 +931,7 @@ int _SplitOnRLoquatNodeCompletelySearchBySort2D(float** data, float** target, in
 }
 
 int _SplitOnRLoquatNodeCompletelySearch(float** data, float** target, int variables_num_x, int variables_num_y,
-										int* innode_samples_index, int innode_num, int Mvariable, int& split_variable_index, float& split_value)
+										const int* innode_samples_index, int innode_num, int Mvariable, int& split_variable_index, float& split_value)
 {
 
 	int i, j, m, n, index, rv = 1;
@@ -1079,7 +1079,7 @@ int _SplitOnRLoquatNodeCompletelySearch(float** data, float** target, int variab
 
 
 int SplitOnRLoquatNodeCompletelySearch(float** data, float** target, int variables_num_x, int variables_num_y,
-										int* innode_samples_index, int innode_num, int Mvariable, int& split_variable_index, float& split_value)
+										const int* innode_samples_index, int innode_num, int Mvariable, int& split_variable_index, float& split_value)
 {
 
 	int rv = -1;
@@ -1101,7 +1101,7 @@ int SplitOnRLoquatNodeCompletelySearch(float** data, float** target, int variabl
 }
 
 int _SplitOnRLoquatNode(float **data, float **target, int variables_num_x, int variables_num_y, 
-					   int *innode_samples_index, int innode_num, int Mvariable, int &split_variable_index, float &split_value)
+					   const int *innode_samples_index, int innode_num, int Mvariable, int &split_variable_index, float &split_value)
 {
 	int i, j, m, n, index, rv = 1;
 	int *selSplitIndex = new int[Mvariable];
@@ -1301,7 +1301,7 @@ int _SplitOnRLoquatNode(float **data, float **target, int variables_num_x, int v
 }
 
 int _SplitOnRLoquatNode1D(float** data, float** target, int variables_num_x, int variables_num_y,
-	int* innode_samples_index, int innode_num, int Mvariable, int& split_variable_index, float& split_value)
+				const int* innode_samples_index, int innode_num, int Mvariable, int& split_variable_index, float& split_value)
 {
 	int i, j, index, order, rv = 1;
 	int lc_best = 0, rc_best = 0;
@@ -1471,7 +1471,7 @@ int _SplitOnRLoquatNode1D(float** data, float** target, int variables_num_x, int
 }
 
 int SplitOnRLoquatNode(float** data, float** target, int variables_num_x, int variables_num_y,
-			int* innode_samples_index, int innode_num, int Mvariable, int& split_variable_index, float& split_value)
+			const int* innode_samples_index, int innode_num, int Mvariable, int& split_variable_index, float& split_value)
 {
 	int rv;
 	switch (variables_num_y)
@@ -1487,7 +1487,7 @@ int SplitOnRLoquatNode(float** data, float** target, int variables_num_x, int va
 }
 
 int SplitOnRLoquateNodeExtremeRandomly(float **data, float **target, int variables_num_x, int variables_num_y, 
-									   int *innode_samples_index, int innode_num ,int Mvariable, int &split_variable_index, float &split_value)
+									  const int *innode_samples_index, int innode_num ,int Mvariable, int &split_variable_index, float &split_value)
 {
 	int i, j, m, n, index, rv = 1;
 	int *selSplitIndex = new int[Mvariable];
@@ -1646,7 +1646,7 @@ int SplitOnRLoquateNodeExtremeRandomly(float **data, float **target, int variabl
 }
 
 
-void CalculateLeafNodeInformation(float **data, float **target, int *sample_index, int arrivedNum, int variable_num_x, int variable_num_y, PredictionModel predictionModel, LeafNodeInfo *&pLeafNodeInfo)
+void CalculateLeafNodeInformation(float **data, float **target, const int *sample_index, int arrivedNum, int variable_num_x, int variable_num_y, PredictionModel predictionModel, LeafNodeInfo *&pLeafNodeInfo)
 {
 	assert(arrivedNum > 0);
 
@@ -1781,31 +1781,31 @@ void CalculateLeafNodeInformation(float **data, float **target, int *sample_inde
 	}
 }
 
-int ClearAllocatedMemoryDuringRTraining(struct LoquatRTreeNode* treeNode)
-{
-	if (NULL == treeNode)
-	{
-		return 0;
-	}
-	// clear left subnode
-	ClearAllocatedMemoryDuringRTraining(treeNode->pSubNode[0]);
-	// clear right subnode
-	ClearAllocatedMemoryDuringRTraining(treeNode->pSubNode[1]);
-	// clear  this node
-	delete[] treeNode->samples_index;
-	treeNode->samples_index = NULL;
-	treeNode->arrival_samples_num = 0;
-	return 1;
-}
-
-int ClearAllocatedMemoryDuringRTraining(struct LoquatRTreeStruct* loquatTree)
-{
-	if (NULL == loquatTree)
-	{
-		return 0;
-	}
-	return ClearAllocatedMemoryDuringRTraining(loquatTree->rootNode);
-}
+//int ClearAllocatedMemoryDuringRTraining(struct LoquatRTreeNode* treeNode)
+//{
+//	if (NULL == treeNode)
+//	{
+//		return 0;
+//	}
+//	// clear left subnode
+//	ClearAllocatedMemoryDuringRTraining(treeNode->pSubNode[0]);
+//	// clear right subnode
+//	ClearAllocatedMemoryDuringRTraining(treeNode->pSubNode[1]);
+//	// clear  this node
+//	delete[] treeNode->samples_index;
+//	treeNode->samples_index = NULL;
+//	treeNode->arrival_samples_num = 0;
+//	return 1;
+//}
+//
+//int ClearAllocatedMemoryDuringRTraining(struct LoquatRTreeStruct* loquatTree)
+//{
+//	if (NULL == loquatTree)
+//	{
+//		return 0;
+//	}
+//	return ClearAllocatedMemoryDuringRTraining(loquatTree->rootNode);
+//}
 
 
 // 2021-04-07
@@ -1827,7 +1827,7 @@ struct _GrowNodeInput
 typedef struct _GrowNodeInput GrowNodeInput;
 
 // target是1维的情况下，计算target的方差
-double calculateVariance(float** target, int* sample_index, int sample_num)
+double calculateVariance(float** target, const int* sample_index, const int sample_num)
 {
 	if (0 == sample_num)
 		return 0.0;
@@ -1849,7 +1849,7 @@ double calculateVariance(float** target, int* sample_index, int sample_num)
 
 	return sigma;
 }
-bool isLowVariance(float** target, int variables_num, int* sample_index, int sample_num)
+bool isLowVariance(float** target, int variables_num, const int* sample_index, const int sample_num)
 {
 	double var = 0.0;
 	if (1 == variables_num)
@@ -1873,7 +1873,7 @@ inline bool isConstant(const int* sample_index, int sample_num)
 	return true;
 }
 
-struct LoquatRTreeNode* GrowLoquatRTreeNodeRecursively(float** data, float** target, int*& sample_arrival_index, int arrival_num, const GrowNodeInput* pInputParam, struct LoquatRTreeStruct* loquatTree)
+struct LoquatRTreeNode* GrowLoquatRTreeNodeRecursively(float** data, float** target, const int * sample_arrival_index, int arrival_num, const GrowNodeInput* pInputParam, struct LoquatRTreeStruct* loquatTree)
 {
 
 	int total_samples_num = pInputParam->total_samples_num;
@@ -1906,12 +1906,6 @@ struct LoquatRTreeNode* GrowLoquatRTreeNodeRecursively(float** data, float** tar
 	treeNode->pLeafNodeInfo = NULL;
 	treeNode->arrival_samples_num = arrival_num;
 	treeNode->samples_index = sample_arrival_index; 
-
-	if (0 == treeNode->depth)
-	{
-		treeNode->samples_index = new int[arrival_num];
-		memcpy(treeNode->samples_index, sample_arrival_index, arrival_num * sizeof(int));
-	}
 
 	// 以上用到达样本生成一个新节点，以下开始判断这个节点是否可以再分裂
 	bool term = false;
@@ -1967,11 +1961,11 @@ struct LoquatRTreeNode* GrowLoquatRTreeNodeRecursively(float** data, float** tar
 		float splitv = treeNode->split_value;
 		int split_index = treeNode->split_variable_index;
 		int leftsubnode_samples_num = 0, rightsubnode_samples_num = 0;
-		int* subnode_samples_queue = new int[treeNode->arrival_samples_num];
-		assert(subnode_samples_queue);
+		int* subnode_samples_queue = NULL;
 
 		if (treeNode->split_variable_index >= 0)
 		{
+			subnode_samples_queue = new int[treeNode->arrival_samples_num];
 			for (int kk = 0; kk < treeNode->arrival_samples_num; kk++)
 			{
 				index = treeNode->samples_index[kk];
@@ -2001,19 +1995,15 @@ struct LoquatRTreeNode* GrowLoquatRTreeNodeRecursively(float** data, float** tar
 			treeNode->pLeafNodeInfo->arrivedRatio = treeNode->arrival_samples_num / (float)pInputParam->samples_num_of_tree;
 			treeNode->pLeafNodeInfo->dimension = total_variables_num_y;
 
-			delete[] subnode_samples_queue;//!!!!!!!!!!!!!!!!!!!
+			if (NULL != subnode_samples_queue)
+				delete[] subnode_samples_queue;//!!!!!!!!!!!!!!!!!!!
 			return treeNode;
 		}
 
 
-		int* leftsubnode_index = NULL, * rightsubnode_index = NULL;
-		leftsubnode_index = new int[leftsubnode_samples_num];
-		rightsubnode_index = new int[rightsubnode_samples_num];
-		//memcpy_s(leftsubnode_index, leftsubnode_samples_num*sizeof(int), subnode_samples_queue, leftsubnode_samples_num*sizeof(int));
-		memcpy(leftsubnode_index, subnode_samples_queue, leftsubnode_samples_num * sizeof(int));
-		//memcpy_s(rightsubnode_index, rightsubnode_samples_num*sizeof(int), subnode_samples_queue+leftsubnode_samples_num, rightsubnode_samples_num*sizeof(int));
-		memcpy(rightsubnode_index, subnode_samples_queue + leftsubnode_samples_num, rightsubnode_samples_num * sizeof(int));
-		delete[] subnode_samples_queue;
+		int* leftsubnode_index = subnode_samples_queue;
+		int* rightsubnode_index = subnode_samples_queue + leftsubnode_samples_num;
+		assert(leftsubnode_samples_num + rightsubnode_samples_num == treeNode->arrival_samples_num);
 
 		GrowNodeInput input = *pInputParam;
 		input.parent_depth = treeNode->depth;// error happened here 调试了很久!
@@ -2033,11 +2023,14 @@ struct LoquatRTreeNode* GrowLoquatRTreeNodeRecursively(float** data, float** tar
 														&input,
 														loquatTree);
 
-		//if( rightsubnode_index!=NULL ) delete [] rightsubnode_index;// 在递归调用GrowXXXNodeXXXsively函数中空间被释放
-		//if( leftsubnode_index!=NULL ) delete  [] leftsubnode_index; // 假设没有被释放则在这里释放
 		treeNode->pSubNode[0]->pParentNode = treeNode;
 		treeNode->pSubNode[1]->pParentNode = treeNode;
 
+		delete[] subnode_samples_queue;
+		treeNode->pSubNode[0]->samples_index = NULL;
+		treeNode->pSubNode[0]->arrival_samples_num = 0;
+		treeNode->pSubNode[1]->samples_index = NULL;
+		treeNode->pSubNode[1]->arrival_samples_num = 0;
 	}
 
 	return treeNode;
@@ -2123,12 +2116,16 @@ int GrowRandomizedRLoquatTreeRecursively(float** data, float** target, const Ran
 							  RFinfo.predictionModel,
 							  RFinfo.randomness};
 	loquatTree->rootNode = GrowLoquatRTreeNodeRecursively(data, target,
-		loquatTree->inbag_samples_index,
-		loquatTree->inbag_samples_num,
-		&inputParam, loquatTree);
+												loquatTree->inbag_samples_index,
+												loquatTree->inbag_samples_num,
+												&inputParam, loquatTree);
+	
+	
 	loquatTree->rootNode->pParentNode = NULL;
+	loquatTree->rootNode->arrival_samples_num = 0;
+	loquatTree->rootNode->samples_index = NULL;
 
-	ClearAllocatedMemoryDuringRTraining(loquatTree);
+	//ClearAllocatedMemoryDuringRTraining(loquatTree);
 
 	return 1;
 }

@@ -1,5 +1,5 @@
 /*
-GuXF, 9.2011, @NJUST, lastest modification 8.2021
+GuXF, 9.2011, @NJUST, lastest modification 5.2022
 Contact: gxf1027@126.com.
 Try my best to implement random forests.
 Reference [1]. Leo Breiman. Random Forests. Machine Learning 45 (1), 2001: 5¨C32
