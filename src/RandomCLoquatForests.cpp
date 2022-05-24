@@ -1815,7 +1815,7 @@ int AnalyzeTrainingSamplesArrivedAtOneNode2(const int* label, const int samples_
 	return 1;
 }
 
-struct LoquatCTreeNode* GrowLoquatCTreeNodeRecursively(float **data, int *label, const int * sample_arrival_index, const int arrival_num,  GrowNodeInput *pInputParam, struct LoquatCTreeStruct *loquatTree)
+struct LoquatCTreeNode* GrowLoquatCTreeNodeRecursively(float **data, int *label, const int * sample_arrival_index, const int arrival_num, const GrowNodeInput *pInputParam, struct LoquatCTreeStruct *loquatTree)
 {
 	int total_samples_num   = pInputParam->total_samples_num;
 	int total_variables_num = pInputParam->total_variables_num;
@@ -3712,4 +3712,57 @@ void DisplayLoquatTreeInfo(struct LoquatCTreeStruct* loquatTree, RandomCForests_
 
 	}
 
+}
+
+
+void PrintForestInfo(const LoquatCForest* forest, ostream &out)
+{
+	
+	for (int t = 0; t < forest->RFinfo.ntrees; t++)
+	{
+		const struct LoquatCTreeStruct* pTree = forest->loquatTrees[t];
+		vector< LoquatCTreeNode* > treeNodes;
+		treeNodes.push_back(pTree->rootNode);
+
+		int node_num = 0, leaf_node_num = 0;
+
+		while (treeNodes.size() > 0)
+		{
+			vector<LoquatCTreeNode*> nextDepthNodes;
+			vector<LoquatCTreeNode*>::iterator it = treeNodes.begin();
+			
+			for (; it != treeNodes.end(); it++)
+			{
+				
+				const struct LoquatCTreeNode* const pNode = (*it);
+				switch (pNode->nodetype)
+				{
+				case enLeafNode:
+					leaf_node_num++;
+					
+				case enLinkNode:
+				case enRootNode:
+					node_num++;
+					break;
+				}
+
+				// 叶子节点
+				if (enLeafNode == pNode->nodetype)
+				{
+					continue;
+				}
+
+				nextDepthNodes.push_back(pNode->pSubNode[0]);
+				nextDepthNodes.push_back(pNode->pSubNode[1]);
+
+			}
+
+			treeNodes.assign(nextDepthNodes.begin(), nextDepthNodes.end()); // 清空原vector，赋予新数据
+
+		}
+
+		assert(leaf_node_num == pTree->leaf_node_num);
+		out << "Tree " << t+1 << ": depth "<<pTree->depth<<", nodes " << node_num << ",leaf_nodes " << leaf_node_num << endl;
+
+	}
 }

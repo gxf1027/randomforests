@@ -138,7 +138,7 @@ int TrainRandomForestClassifierWithStopCriterion(float **data, int *label, Rando
 											  PlantStopCriterion stopCriterion, int &nPlantedTreeNum, float *&error_rate_sequent);
 
 
-void DisplayLoquatTreeInfo(struct LoquatCTreeStruct *loquatTree, RandomCForests_info RFinfo);
+void PrintForestInfo(const LoquatCForest *forest, ostream &out);
 
 /*-----------------------------------------------CLEAR MEMORY-----------------------------------------------*/
 
