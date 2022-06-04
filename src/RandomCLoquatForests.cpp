@@ -1056,82 +1056,21 @@ int SplitOnDLoquatNode(float **data, int *label, int samples_num, int variables_
 	return rv;
 }
 
-int SplitOnDLoquatNode2(float** data, int* label, int samples_num, int variables_num, int classes_num,
-	const int* innode_samples_index, int innode_num, int Mvariable, int& split_variable_index, float& split_value)
+int SplitOnDLoquatNode2(float** data, int* label, const int samples_num, const int variables_num, const int classes_num,
+				const int* innode_samples_index, const int innode_num, const int Mvariable, int& split_variable_index, float& split_value)
 {
-	int i, j, index, order, rv = 1;
-	int lc_best=0, rc_best=0;
-	int* selSplitIndex = new int[Mvariable];
-	float* maxv = NULL, * minv = NULL, * step = NULL, * itoa = NULL;
+	int i, j, index, rv = 1;
+	int lc_best = 0, rc_best = 0;
+	int selSplitIndex;
+	float maxv, minv, step;
 	float splitv = 0;
 	double lgini, rgini, gini, mingini = 1e38;
-	/*maxv = new float[Mvariable];
-	minv = new float[Mvariable];
-	step = new float[Mvariable];
-	itoa = new float[Mvariable];*/
-	maxv = new float[Mvariable * 4];
-	minv = maxv + Mvariable;
-	step = maxv + 2 * Mvariable;
-	itoa = maxv + 3 * Mvariable;
-	int var_index;
 
 	// randomly select the variables(attribute) candidate choosing to split on the node
 	vector<int> arrayindx;
 	for (i = 0; i < variables_num; i++)
 		arrayindx.push_back(i);
-	for (i = 0; i < Mvariable; i++)
-	{
-		int iid = rand() % (variables_num - i);
-		selSplitIndex[i] = arrayindx[iid];
-		arrayindx.erase(arrayindx.begin() + iid);
-	}
 
-	// 	bool identical = true;
-	// 	srand(g_random_seed++);
-	// 	for( i=0; i<Mvariable; i++ )
-	// 	{
-	// 		identical = true;
-	// 		int rC=0;
-	// 		while( identical ) // 避免选择的variable序号重复
-	// 		{
-	// 			identical = false;
-	// 			index = rand()%variables_num;
-	// 			if( index < 0 )
-	// 				index = 0;
-	// 			else if( index >= variables_num )
-	// 				index = variables_num-1;
-	// 			for ( int k=0; k<i; k++ ){
-	// 				if( selSplitIndex[k] == index){
-	// 					identical = true;
-	// 					break;
-	// 				}
-	// 			}
-	// 
-	// 			if (++rC > Mvariable*10 ) // 确保不会死循环
-	// 				break;
-	// 		}	
-	// 		selSplitIndex[i] = index;
-	// 	}
-
-	for (i = 0; i < Mvariable; i++)
-	{
-		var_index = selSplitIndex[i];
-		index = innode_samples_index[0];
-		maxv[i] = data[index][var_index];
-		minv[i] = data[index][var_index];
-		for (j = 1; j < innode_num; j++)
-		{
-			index = innode_samples_index[j];
-			if (data[index][var_index] > maxv[i])
-				maxv[i] = data[index][var_index];
-			else if (data[index][var_index] < minv[i])
-				minv[i] = data[index][var_index];
-		}
-		step[i] = (maxv[i] - minv[i]) / INTERVAL_STEPS_NUM;
-		itoa[i] = step[i] / 100.0f;
-	}
-
-	int lcount = 0, rcount = 0, lcount_split, rcount_split;
 	int* lsubNodeClassnum = new int[classes_num];
 	int* rsubNodeClassnum = new int[classes_num];
 	memset(lsubNodeClassnum, 0, sizeof(int) * classes_num);
@@ -1139,16 +1078,34 @@ int SplitOnDLoquatNode2(float** data, int* label, int samples_num, int variables
 
 	bool bfindSplitV = false;
 	split_variable_index = -1;
-	for (j = 0; j < Mvariable; j++)  // 对于每个被选中的属性
-	{
-		var_index = selSplitIndex[j];
+	int lcount = 0, rcount = 0;
 
-		if (step[j] < FLT_EPSILON)	
-			continue; // step[j] == 0
+	for (i = 0; i < Mvariable; i++)
+	{
+		int iid = rand_freebsd() % (variables_num - i);
+		selSplitIndex = arrayindx[iid];
+		arrayindx.erase(arrayindx.begin() + iid);
+
+		index = innode_samples_index[0];
+		maxv = data[index][selSplitIndex];
+		minv = data[index][selSplitIndex];
+		for (j = 1; j < innode_num; j++)
+		{
+			index = innode_samples_index[j];
+			if (data[index][selSplitIndex] > maxv)
+				maxv = data[index][selSplitIndex];
+			else if (data[index][selSplitIndex] < minv)
+				minv = data[index][selSplitIndex];
+		}
+		step = (maxv - minv) / INTERVAL_STEPS_NUM;		
+		
+		if (step < FLT_EPSILON)
+			continue; 
 
 		int counter = 0;
-		//splitv = minv[j] - itoa[j];
-		splitv = minv[j];
+
+		splitv = minv;
+
 		while (counter <= INTERVAL_STEPS_NUM + 1)
 		{
 			if (counter == INTERVAL_STEPS_NUM + 1)
@@ -1156,17 +1113,17 @@ int SplitOnDLoquatNode2(float** data, int* label, int samples_num, int variables
 				// 当minv 与 maxv差距很小时 splitv+= step可能会因为float精度问题不变化，
 				// 此问题在Superconductivty_train数据集出现
 				// 因此使用一次均值来避免这个问题
-				splitv = (minv[j] + maxv[j]) * 0.5f;
+				splitv = (minv + maxv) * 0.5f;
 			}
 
 			lcount = 0;	rcount = 0;
 			memset(lsubNodeClassnum, 0, sizeof(int) * classes_num);
 			memset(rsubNodeClassnum, 0, sizeof(int) * classes_num);
 
-			for (i = 0; i < innode_num; i++)
+			for (j = 0; j < innode_num; j++)
 			{
-				index = innode_samples_index[i];
-				if (data[index][var_index] <= splitv)
+				index = innode_samples_index[j];
+				if (data[index][selSplitIndex] <= splitv)
 				{
 					lcount++;
 					lsubNodeClassnum[label[index]]++;
@@ -1182,10 +1139,10 @@ int SplitOnDLoquatNode2(float** data, int* label, int samples_num, int variables
 			lgini = 0;	rgini = 0;
 			const int lc = lcount == 0 ? 1 : lcount;
 			const int rc = rcount == 0 ? 1 : rcount;
-			for (i = 0; i < classes_num; i++)
+			for (j = 0; j < classes_num; j++)
 			{
-				lgini += (lsubNodeClassnum[i] / (double)lc) * (lsubNodeClassnum[i] / (double)lc);
-				rgini += (rsubNodeClassnum[i] / (double)rc) * (rsubNodeClassnum[i] / (double)rc);
+				lgini += (lsubNodeClassnum[j] / (double)lc) * (lsubNodeClassnum[j] / (double)lc);
+				rgini += (rsubNodeClassnum[j] / (double)rc) * (rsubNodeClassnum[j] / (double)rc);
 			}
 			lgini = 0.5 * (1.0 - lgini);
 			rgini = 0.5 * (1.0 - rgini);
@@ -1195,24 +1152,16 @@ int SplitOnDLoquatNode2(float** data, int* label, int samples_num, int variables
 			{
 				bfindSplitV = true;
 				mingini = gini;
-				split_variable_index = var_index;
+				split_variable_index = selSplitIndex;
 				split_value = splitv;
-				lcount_split = lcount;
-				rcount_split = rcount;
-				// 	ln = lsubNodeClassnum[0];
-				// 	lp = lsubNodeClassnum[1];
-				// 	rn = rsubNodeClassnum[0];
-				// 	rp = rsubNodeClassnum[1];
-				order = j;
 				lc_best = lcount;
 				rc_best = rcount;
 			}
 
 			++counter;
-			splitv += step[j];
+			splitv += step;
 
 		}
-		
 	}
 
 	if (bfindSplitV == false) // 如果所有被选择分量的maxv==minv
@@ -1233,46 +1182,14 @@ int SplitOnDLoquatNode2(float** data, int* label, int samples_num, int variables
 	{
 		if (lc_best == 0 || rc_best == 0)
 		{
-			split_value = (maxv[order] + minv[order]) * 0.5f;
+			//split_value = (maxv[order] + minv[order]) * 0.5f;
+			split_variable_index = rand_freebsd() % variables_num;
+			int index1 = rand_freebsd() % innode_num;
+			int index2 = rand_freebsd() % innode_num;
+			split_value = 0.5f*(data[innode_samples_index[index1]][split_variable_index] + data[innode_samples_index[index2]][split_variable_index]);
 		}
 	}
 
-	// 	if( leftsubnode_samples_index ){
-	// 		delete [] leftsubnode_samples_index;
-	// 		leftsubnode_samples_index = NULL;
-	// 	}
-	// 	if( rightsubnode_samples_index ){
-	// 		delete [] rightsubnode_samples_index;
-	// 		rightsubnode_samples_index = NULL;
-	// 	}
-	// 	leftsubnode_samples_index = new int [lcount_split];
-	// 	rightsubnode_samples_index = new int[rcount_split];
-	// 	leftsubnode_samples_num  = lcount_split;
-	// 	rightsubnode_samples_num = rcount_split;
-	// 
-	// 	// left/right node samples index and number
-	// 	int ll = 0, rr = 0;
-	// 	for( i=0; i<innode_num; i++ )
-	// 	{
-	// 		index = innode_samples_index[i];
-	// 		if( data[index][split_variable_index] <= split_value )
-	// 		{
-	// 			leftsubnode_samples_index[ll++] = index;
-	// 		}else
-	// 			rightsubnode_samples_index[rr++] = index;
-	// 	}
-	// 	if( split_variable_index == -1 )
-	// 	{
-	// 		cout<<"^^^^^^^^^^^"<<selSplitIndex[0]<<"^^^^^^^^^^^"<<selSplitIndex[1]<<endl;
-	// 		cout<<">>>>>>>>>>>"<<split_variable_index<<">>>>>>>>>>>>>"<<split_value<<endl;
-	// 		cout<<">>>>>>>>>>>"<<minv[0]<<" "<<maxv[0]<<"<<<<<<"<<minv[1]<<" "<<maxv[1]<<"  "<<splitv<<endl;
-	// 	}
-
-	delete[] selSplitIndex;
-	delete[] maxv;
-	/*delete[] minv;
-	delete[] step;
-	delete[] itoa;*/
 	delete[] lsubNodeClassnum;
 	delete[] rsubNodeClassnum;
 	return rv;
@@ -1333,7 +1250,7 @@ int SplitOnDLoquatNodeCompletelySearch(float** data, int* label, int samples_num
 		arrayindx.push_back(i);
 	for (i = 0; i < Mvariable; i++)
 	{
-		int iid = rand() % (variables_num - i);
+		int iid = rand_freebsd() % (variables_num - i);
 		selSplitIndex[i] = arrayindx[iid];
 		arrayindx.erase(arrayindx.begin() + iid);
 	}
@@ -1381,6 +1298,16 @@ int SplitOnDLoquatNodeCompletelySearch(float** data, int* label, int samples_num
 				labelsCum[i][k] += labelsCum[i][k - 1];
 			}
 		}
+
+		/*labelsCum[vls[0].label][0] = 1.f;
+		for (k = 1; k < innode_num; k++)
+		{
+			for (i = 0; i < classes_num; i++)
+			{
+				labelsCum[i][k] = labelsCum[i][k - 1] + (vls[k].label == i);
+			}
+		}*/
+
 #ifdef TEST_CHECK
 		for (int c = 0; c < classes_num; c++)
 		{
@@ -1468,7 +1395,8 @@ int SplitOnDLoquateNodeExtremeRandomly(float **data, int *label, int samples_num
 		arrayindx.push_back(i);
 	for( i=0; i<Mvariable; i++ )
 	{
-		int iid = rand()%(variables_num-i);
+		//int iid = rand()%(variables_num-i);
+		int iid = rand_freebsd()%(variables_num-i);
 		selSplitIndex[i] = arrayindx[iid];
 		arrayindx.erase(arrayindx.begin()+iid);
 	}
@@ -1489,7 +1417,7 @@ int SplitOnDLoquateNodeExtremeRandomly(float **data, int *label, int samples_num
 				minv[i] = data[index][var_index];
 		}
 
-		splitv_cand[i] = ((float)rand_freebsd())/RAND_MAX_RF*(maxv[i]-minv[i])+minv[i]; //(maxv[i]-minv[i])/INTERVAL_STEPS_NUM;
+		splitv_cand[i] = ((float)rand_freebsd())/RAND_MAX_RF*(maxv[i]-minv[i])+minv[i];
 	}
 
 	int lcount=0, rcount=0, lcount_split, rcount_split;
@@ -1900,9 +1828,6 @@ struct LoquatCTreeNode* GrowLoquatCTreeNodeRecursively(float **data, int *label,
 				pInputParam->mvariables, treeNode->split_variable_index, treeNode->split_value);
 			break;
 		case TREE_RANDOMNESS_MODERATE:
-			/*SplitOnDLoquatNode(data, label, total_samples_num, total_variables_num, total_classes_num,
-				treeNode->samples_index, treeNode->arrival_samples_num,
-				pInputParam->mvariables, treeNode->split_variable_index, treeNode->split_value);*/
 			SplitOnDLoquatNode2(data, label, total_samples_num, total_variables_num, total_classes_num,
 				treeNode->samples_index, treeNode->arrival_samples_num,
 				pInputParam->mvariables, treeNode->split_variable_index, treeNode->split_value);
