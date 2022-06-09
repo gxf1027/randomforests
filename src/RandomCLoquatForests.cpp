@@ -1232,11 +1232,10 @@ int SplitOnDLoquatNodeCompletelySearch(float** data, int* label, int samples_num
 	const int* innode_samples_index, int innode_num, int Mvariable, int& split_variable_index, float& split_value)
 {
 	int i, j, k, index, rv = 1;
-	int* selSplitIndex = new int[Mvariable];
 	float splitv = 0;
 	double lgini, rgini, gini, mingini = 1e38;
 	int lcount = 0, rcount = 0;
-	int var_index;
+	
 #ifdef TEST_CHECK
 	int* labelstat = new int[classes_num];
 	memset(labelstat, 0, sizeof(int) * classes_num);
@@ -1249,12 +1248,6 @@ int SplitOnDLoquatNodeCompletelySearch(float** data, int* label, int samples_num
 	vector<int> arrayindx;
 	for (i = 0; i < variables_num; i++)
 		arrayindx.push_back(i);
-	for (i = 0; i < Mvariable; i++)
-	{
-		int iid = rand_freebsd() % (variables_num - i);
-		selSplitIndex[i] = arrayindx[iid];
-		arrayindx.erase(arrayindx.begin() + iid);
-	}
 
 	float** labelsCum = new float* [classes_num]; // 类别累计直方图
 	for (k = 0; k < classes_num; k++)
@@ -1264,37 +1257,37 @@ int SplitOnDLoquatNodeCompletelySearch(float** data, int* label, int samples_num
 	}
 
 	var_label* vls = new var_label[innode_num];
+	std::vector<var_label*> vvls;
 	bool bfindSplitV = false;
 	split_variable_index = -1;
 
-	std::vector<var_label *> vvls;
-
 	for (j = 0; j < Mvariable; j++)
 	{
-		var_index = selSplitIndex[j];
 
-
+		const int iid = rand_freebsd() % (variables_num - j);
+		const int selSplitIndex = arrayindx[iid];
+		arrayindx.erase(arrayindx.begin() + iid);
+		assert(selSplitIndex >= 0 && selSplitIndex < variables_num);
 
 		for (k = 0; k < classes_num; k++)
 		{
 			memset(labelsCum[k], 0, sizeof(float) * innode_num);
 		}
-		
 
-		// std::sort
+
 		vvls.clear();
 		for (k = 0; k < innode_num; k++)
 		{
 			index = innode_samples_index[k];
-			vls[k].var = data[index][var_index];
+			vls[k].var = data[index][selSplitIndex];
 			vls[k].label = label[index];
-			vvls.push_back(vls+k);
+			vvls.push_back(vls + k);
 		}
 		// 用自定义函数对象排序
 		struct {
 			bool operator()(var_label* a, var_label* b) const
 			{
-				return (*a).var < (*b).var;
+				return a->var < b->var;
 			}
 		} customComp;
 
@@ -1338,7 +1331,7 @@ int SplitOnDLoquatNodeCompletelySearch(float** data, int* label, int samples_num
 			ptr1 = vvls[k - 1];
 			ptr2 = vvls[k];
 			//assert(ptr2->var >= ptr1->var);
-			if ( ptr2->var - ptr1->var < FLT_EPSILON)
+			if (ptr2->var - ptr1->var < FLT_EPSILON)
 				continue;
 
 			splitv = 0.5f * (ptr1->var + ptr2->var);
@@ -1363,7 +1356,7 @@ int SplitOnDLoquatNodeCompletelySearch(float** data, int* label, int samples_num
 			{
 				bfindSplitV = true;
 				mingini = gini;
-				split_variable_index = var_index;
+				split_variable_index = selSplitIndex;
 				split_value = splitv;
 			}
 		}
@@ -1381,7 +1374,6 @@ int SplitOnDLoquatNodeCompletelySearch(float** data, int* label, int samples_num
 			rv = 0;
 	}
 	delete[] vls;
-	delete[] selSplitIndex;
 	for (k = 0; k < classes_num; k++)
 	{
 		delete[] labelsCum[k];
@@ -3770,10 +3762,19 @@ void DisplayLoquatTreeInfo(struct LoquatCTreeStruct* loquatTree, RandomCForests_
 
 void PrintForestInfo(const LoquatCForest* forest, ostream &out)
 {
-	
+	if (NULL == forest)
+	{
+		return;
+	}
+
 	for (int t = 0; t < forest->RFinfo.ntrees; t++)
 	{
 		const struct LoquatCTreeStruct* pTree = forest->loquatTrees[t];
+		if (NULL == pTree)
+		{
+			continue;
+		}
+
 		vector< LoquatCTreeNode* > treeNodes;
 		treeNodes.push_back(pTree->rootNode);
 

@@ -137,7 +137,12 @@ return:
 int TrainRandomForestClassifierWithStopCriterion(float **data, int *label, RandomCForests_info RFinfo, LoquatCForest *&loquatForest, 
 											  PlantStopCriterion stopCriterion, int &nPlantedTreeNum, float *&error_rate_sequent);
 
+/*
+Description:	Output detail of Random Forest model
+[in]  1.forest:  a trained random forest model
 
+	  2.out:    std::out, file(an object of ofstream) or others
+*/
 void PrintForestInfo(const LoquatCForest *forest, ostream &out);
 
 /*-----------------------------------------------CLEAR MEMORY-----------------------------------------------*/
