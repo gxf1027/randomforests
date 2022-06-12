@@ -11,9 +11,9 @@ Contact: gxf1027@126.com
 #include <deque>
 #include <cassert>
 #include <cstring> // for memset...
-#include <cstdlib>  // for srand rand
 #include <float.h>
 #include <algorithm>
+#include <iomanip>
 using namespace std;
 
 #include "RandomCLoquatForests.h"
@@ -677,21 +677,19 @@ int TrainRandomForestClassifier(float **data, int *label, RandomCForests_info RF
 		return -3;
 	}
 
-	int i, Ntrees;
+	const int Ntrees = RFinfo.ntrees;
 	loquatForest = new LoquatCForest;
 	assert( loquatForest != NULL );
 	loquatForest->loquatTrees = NULL;
 	loquatForest->RFinfo = RFinfo;
-	Ntrees = loquatForest->RFinfo.ntrees;
 	loquatForest->loquatTrees = new struct LoquatCTreeStruct *[Ntrees];
 
-	for( i=0; i<Ntrees; i++ )
+	for( int i=0; i<Ntrees; i++ )
 	{
 		loquatForest->loquatTrees[i] = NULL;
 	}
 
-	const int ntrees = loquatForest->RFinfo.ntrees;
-	for ( i=0; i<Ntrees; i++ )
+	for ( int i=0; i<Ntrees; i++ )
 	{
 		rv = GrowRandomizedCLoquatTreeRecursively( data, label, RFinfo, loquatForest->loquatTrees[i]);
 		if( 1 != rv )	
@@ -703,7 +701,7 @@ int TrainRandomForestClassifier(float **data, int *label, RandomCForests_info RF
 			loquatForest->RFinfo.ntrees = i + 1;
 			OOBErrorEstimate(data, label, loquatForest, ooberror, 1);
 			cout << "Tree: " << i + 1 << "\tOOB error rate: " << ooberror * 100 << "%" << endl;
-			loquatForest->RFinfo.ntrees = ntrees;
+			loquatForest->RFinfo.ntrees = Ntrees;
 		}
 		
 	}
@@ -816,8 +814,6 @@ int ExtremeRandomlySplitOnDLoquatNode(float **data, int samples_num, int variabl
 		totalTryNum = 20;
 
 	// randomly select the variables(attribute) candidate choosing to split on the node
-
-	srand(g_random_seed++);
 
 	while( --totalTryNum )
 	{
@@ -1137,6 +1133,7 @@ int SplitOnDLoquatNode2(float** data, int* label, const int samples_num, const i
 
 			}
 
+
 			lgini = 0;	rgini = 0;
 			const int lc = lcount == 0 ? 1 : lcount;
 			const int rc = rcount == 0 ? 1 : rcount;
@@ -1195,7 +1192,6 @@ int SplitOnDLoquatNode2(float** data, int* label, const int samples_num, const i
 	delete[] rsubNodeClassnum;
 	return rv;
 }
-
 
 typedef struct var_label {
 	float var;
@@ -1818,18 +1814,7 @@ int ComputeTrainingImpurityOnOneNode(int *label, int samples_num, int classes_nu
 	return 1;
 }
 
-int AnalyzeTrainingSamplesArrivedAtOneNode(int *label, int samples_num, int classes_num, int *innode_samples_index, int innode_num, float &impurity, float *&class_distribution)
-{
-	int rv1, rv2;
-	rv1 = ComputeTrainingImpurityOnOneNode(label, samples_num, classes_num, innode_samples_index, innode_num, impurity);
-	rv2 = ComputeClassDistributionOnOneNode(label, samples_num, classes_num, innode_samples_index, innode_num, class_distribution);
-
-	if( rv1 + rv2 == 2)
-		return 1;
-	return 0;
-}
-
-int AnalyzeTrainingSamplesArrivedAtOneNode2(const int* label, const int samples_num, const int classes_num, const int* innode_samples_index, const int innode_num, float& impurity, float*& class_distribution)
+int AnalyzeTrainingSamplesArrivedAtOneNode(const int* label, const int samples_num, const int classes_num, const int* innode_samples_index, const int innode_num, float& impurity, float*& class_distribution)
 {
 	if (innode_num == 0)
 	{
@@ -1905,7 +1890,7 @@ struct LoquatCTreeNode* GrowLoquatCTreeNodeRecursively(float **data, int *label,
 	}*/
 
 	// 以上用到达样本生成一个新节点，以下开始判断这个节点是否可以再分裂
-	AnalyzeTrainingSamplesArrivedAtOneNode2(label, total_samples_num, total_classes_num, treeNode->samples_index, treeNode->arrival_samples_num, 
+	AnalyzeTrainingSamplesArrivedAtOneNode(label, total_samples_num, total_classes_num, treeNode->samples_index, treeNode->arrival_samples_num, 
 		treeNode->train_impurity, treeNode->class_distribution);
 
 	bool isFewSamples = (treeNode->arrival_samples_num <= pInputParam->leafMinSamples);
@@ -2077,13 +2062,9 @@ int GrowRandomizedCLoquatTreeRecursively(float **data, int *label, RandomCForest
 	int inbagcount = 0;   // inbagcount 不包括重叠的计数
 	memset(inbagmask, false, total_samples_num*sizeof(bool));
 
-	//g_random_seed = 1001;
-	srand(g_random_seed++);
 	srand_freebsd(g_random_seed++);
-	// int min_index = INT32_MAX, max_index = 0;
 	for( i=0; i<selnum; i++ )
 	{
-		//index = rand()%total_samples_num;
 		index = (int)((rand_freebsd() * 1.0 / RAND_MAX_RF) * total_samples_num + 0.5);
 		if( index<0 )
 			index = 0;
@@ -2252,7 +2233,7 @@ int RawVariableImportanceScore(float **data, int *label, LoquatCForest *loquatFo
 		for ( var=0; var<variables_num; var++ )
 		{	
 			// permuting (var)th variables randomly
-			srand(g_random_seed++);
+			srand_freebsd(g_random_seed++);
 			for ( correct_num_premute=0, i=0; i<oobnum; i++ )
 			{
 				// rand_premute_index = rand() % oobnum;
@@ -3767,6 +3748,9 @@ void PrintForestInfo(const LoquatCForest* forest, ostream &out)
 		return;
 	}
 
+	int max_depth = 0, max_nodes = 0, max_leaf_nodes = 0;
+	int max_depth_tree = -1, max_nodes_tree = -1, max_leaf_nodes_tree = -1;
+	float aver_depth = 0.f, aver_nodes = 0.f, aver_leaf_nodes = 0.f;
 	for (int t = 0; t < forest->RFinfo.ntrees; t++)
 	{
 		const struct LoquatCTreeStruct* pTree = forest->loquatTrees[t];
@@ -3816,7 +3800,32 @@ void PrintForestInfo(const LoquatCForest* forest, ostream &out)
 		}
 
 		assert(leaf_node_num == pTree->leaf_node_num);
-		out << "Tree " << t+1 << ": depth "<<pTree->depth<<", nodes " << node_num << ",leaf_nodes " << leaf_node_num << endl;
+		out << "Tree " << t+1 << ": depth "<<pTree->depth<<",\t nodes " << node_num << ",\t leaf_nodes " << leaf_node_num << endl;
 
+		if (pTree->depth > max_depth)
+		{
+			max_depth = pTree->depth;
+			max_depth_tree = t+1;
+		}
+		if (node_num > max_nodes)
+		{
+			max_nodes = node_num;
+			max_nodes_tree = t+1;
+		}
+		if (leaf_node_num > max_leaf_nodes)
+		{
+			max_leaf_nodes = leaf_node_num;
+			max_leaf_nodes_tree = t+1;
+		}
+
+		aver_depth += pTree->depth;
+		aver_nodes += node_num;
+		aver_leaf_nodes += leaf_node_num;
 	}
+	aver_depth /= forest->RFinfo.ntrees;
+	aver_nodes /= forest->RFinfo.ntrees;
+	aver_leaf_nodes /= forest->RFinfo.ntrees;
+	out << "-------------------------------------------------------------------------" << endl;
+	out << "max depth: " <<max_depth<<"("<<max_depth_tree<<"),\t max_nodes: "<<max_nodes<<"("<<max_nodes_tree<<"),\t max_leaf: "<<max_leaf_nodes<<"("<<max_leaf_nodes_tree<<")"<< endl;
+	out << setiosflags(ios::fixed)<< std::setprecision(1) << "aver depth: " << aver_depth << ", \t aver nodes: " << aver_nodes << ", \t aver leaf nodes: " << aver_leaf_nodes << endl;
 }
