@@ -1053,9 +1053,117 @@ int SplitOnDLoquatNode(float **data, int *label, int samples_num, int variables_
 	return rv;
 }
 
+int SplitOnDLoquatNodeWithEveryAttempt(float** data, int* label, const int samples_num, const int variables_num, const int classes_num,
+		const int* innode_samples_index, const int innode_num, const int Mvariable, int& split_variable_index, float& split_value)
+{
+	int selSplitIndex = -1;
+	int rv = 1;
+	int index = 0;
+	int lcount = 0,	rcount = 0;
+	int lc_best = 0, rc_best = 0;
+	double lgini, rgini, gini, mingini = 1e38;
+
+	vector<int> arrayindx;
+	for (int i = 0; i < variables_num; i++)
+		arrayindx.push_back(i);
+
+	int* lsubNodeClassnum = new int[classes_num];
+	int* rsubNodeClassnum = new int[classes_num];
+	bool bfindSplitV = false;
+	split_variable_index = -1;
+
+	for (int i = 0; i < Mvariable; i++)
+	{
+		int iid = rand_freebsd() % (variables_num - i);
+		selSplitIndex = arrayindx[iid];
+		arrayindx.erase(arrayindx.begin() + iid);
+
+		for (int j = 0; j < innode_num; j++)
+		{
+			float splitv = data[innode_samples_index[j]][selSplitIndex];
+			lcount = 0;	rcount = 0;
+			memset(lsubNodeClassnum, 0, sizeof(int) * classes_num);
+			memset(rsubNodeClassnum, 0, sizeof(int) * classes_num);
+
+			for (int k = 0; k < innode_num; k++)
+			{
+				index = innode_samples_index[k];
+				if (data[index][selSplitIndex] <= splitv)
+				{
+					lcount++;
+					lsubNodeClassnum[label[index]]++;
+				}
+				else
+				{
+					rcount++;
+					rsubNodeClassnum[label[index]]++;
+				}
+			}
+
+			lgini = 0;	rgini = 0;
+			const int lc = lcount == 0 ? 1 : lcount;
+			const int rc = rcount == 0 ? 1 : rcount;
+			for (int n = 0; n < classes_num; n++)
+			{
+				lgini += (lsubNodeClassnum[n] / (double)lc) * (lsubNodeClassnum[n] / (double)lc);
+				rgini += (rsubNodeClassnum[n] / (double)rc) * (rsubNodeClassnum[n] / (double)rc);
+			}
+			lgini = 0.5 * (1.0 - lgini);
+			rgini = 0.5 * (1.0 - rgini);
+			//gini = lcount/(float)innode_num*lgini + rcount/(float)innode_num*rgini;
+			gini = (lcount * lgini + rcount * rgini) / innode_num;
+			if (gini < mingini)
+			{
+				bfindSplitV = true;
+				mingini = gini;
+				split_variable_index = selSplitIndex;
+				split_value = splitv;
+				lc_best = lcount;
+				rc_best = rcount;
+			}
+
+		}
+	}
+
+
+	if (bfindSplitV == false) // 如果所有被选择分量的maxv==minv
+	{
+		if (-1 == ExtremeRandomlySplitOnDLoquatNode(data, samples_num, variables_num, innode_samples_index, innode_num, split_variable_index, split_value))
+		{
+			split_variable_index = -1;
+			split_value = 0;
+			rv = -1;
+		}
+		else
+			rv = 0;
+	}
+	else
+	{
+		if (lc_best == 0 || rc_best == 0)
+		{
+			//split_value = (maxv[order] + minv[order]) * 0.5f;
+			split_variable_index = rand_freebsd() % variables_num;
+			int index1 = rand_freebsd() % innode_num;
+			int index2 = rand_freebsd() % innode_num;
+			split_value = 0.5f * (data[innode_samples_index[index1]][split_variable_index] + data[innode_samples_index[index2]][split_variable_index]);
+		}
+	}
+
+
+	delete[] lsubNodeClassnum;
+	delete[] rsubNodeClassnum;
+	return rv;
+}
+
 int SplitOnDLoquatNode2(float** data, int* label, const int samples_num, const int variables_num, const int classes_num,
 				const int* innode_samples_index, const int innode_num, const int Mvariable, int& split_variable_index, float& split_value)
 {
+
+	/*if (innode_num <= 20)
+	{
+		return SplitOnDLoquatNodeWithEveryAttempt(data, label, samples_num, variables_num, classes_num, innode_samples_index, innode_num, Mvariable, split_variable_index, split_value);
+	}*/
+
 	int i, j, index, rv = 1;
 	int lc_best = 0, rc_best = 0;
 	int selSplitIndex;
@@ -1229,9 +1337,9 @@ int SplitOnDLoquatNodeCompletelySearch(float** data, int* label, int samples_num
 {
 	int i, j, k, index, rv = 1;
 	float splitv = 0;
-	double lgini, rgini, gini, mingini = 1e38;
+	double lgini, rgini, gini, gini_best = -1e38;
 	int lcount = 0, rcount = 0;
-	
+
 #ifdef TEST_CHECK
 	int* labelstat = new int[classes_num];
 	memset(labelstat, 0, sizeof(int) * classes_num);
@@ -1253,7 +1361,6 @@ int SplitOnDLoquatNodeCompletelySearch(float** data, int* label, int samples_num
 	}
 
 	var_label* vls = new var_label[innode_num];
-	std::vector<var_label*> vvls;
 	bool bfindSplitV = false;
 	split_variable_index = -1;
 
@@ -1271,28 +1378,26 @@ int SplitOnDLoquatNodeCompletelySearch(float** data, int* label, int samples_num
 		}
 
 
-		vvls.clear();
 		for (k = 0; k < innode_num; k++)
 		{
 			index = innode_samples_index[k];
 			vls[k].var = data[index][selSplitIndex];
 			vls[k].label = label[index];
-			vvls.push_back(vls + k);
 		}
 		// 用自定义函数对象排序
 		struct {
-			bool operator()(var_label* a, var_label* b) const
+			bool operator()(var_label a, var_label b) const
 			{
-				return a->var < b->var;
+				return a.var < b.var;
 			}
 		} customComp;
 
-		std::sort(vvls.begin(), vvls.end(), customComp);
+		std::sort(vls, vls+ innode_num, customComp);
 
 		// 计算累计直方图(需排序后)
 		for (k = 0; k < innode_num; k++)
 		{
-			labelsCum[(vvls[k])->label][k] = 1.f;
+			labelsCum[vls[k].label][k] = 1.f;
 		}
 
 		for (i = 0; i < classes_num; i++)
@@ -1319,18 +1424,14 @@ int SplitOnDLoquatNodeCompletelySearch(float** data, int* label, int samples_num
 		}
 #endif
 
-		var_label* ptr1;
-		var_label* ptr2;
 		// 找最佳split
 		for (k = 1; k < innode_num; k++)
 		{
-			ptr1 = vvls[k - 1];
-			ptr2 = vvls[k];
-			//assert(ptr2->var >= ptr1->var);
-			if (ptr2->var - ptr1->var < FLT_EPSILON)
+			assert(vls[k].var >= vls[k - 1].var);
+			if (vls[k].var - vls[k-1].var < FLT_EPSILON)
 				continue;
 
-			splitv = 0.5f * (ptr1->var + ptr2->var);
+			splitv = 0.5f * (vls[k].var + vls[k - 1].var);
 			// calc gini
 			lcount = k;
 			rcount = innode_num - k;
@@ -1343,15 +1444,17 @@ int SplitOnDLoquatNodeCompletelySearch(float** data, int* label, int samples_num
 				tmpv = labelsCum[i][innode_num - 1] - labelsCum[i][k - 1];
 				rgini += 1.0 * tmpv * tmpv;
 			}
+			/*
 			lgini = (1.0 - lgini / (1.0 * lcount * lcount)) * 0.5;
 			rgini = (1.0 - rgini / (1.0 * rcount * rcount)) * 0.5;
 			// gini = lcount/(float)innode_num*lgini + rcount/(float)innode_num*rgini;
 			gini = (lcount * lgini + rcount * rgini) / innode_num; //+ (innode_num<500 ? 0 : 0.05) * (lcount * 1.0 / innode_num - 0.5) * (lcount * 1.0 / innode_num - 0.5);
-			//cout <<lcount<<" "<<innode_num<<" "<<lcount*1.0/innode_num<<" " << (lcount * lgini + rcount * rgini) / innode_num << " " << 0.05 * (lcount * 1.0 / innode_num - 0.5) * (lcount * 1.0 / innode_num - 0.5) << endl;
-			if (gini < mingini)
+			*/
+			gini = lgini / lcount + rgini / rcount;
+			if (gini > gini_best)
 			{
 				bfindSplitV = true;
-				mingini = gini;
+				gini_best = gini;
 				split_variable_index = selSplitIndex;
 				split_value = splitv;
 			}
