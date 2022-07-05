@@ -11,10 +11,9 @@ Contact: gxf1027@126.com
 #include <iomanip>
 using namespace std;
 
-#include "SharedRoutines.h"
-#include "RandomCLoquatForests.h"
-#include "RandomRLoquatForests.h"
-#include "UserInteraction2.h"
+#include "../src/RandomCLoquatForests.h"
+#include "../src/RandomRLoquatForests.h"
+#include "../src/UserInteraction2.h"
 
 int command(const char* cd)
 {
