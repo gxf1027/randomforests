@@ -52,7 +52,7 @@ struct LoquatCTreeNode
 	int depth;
 
 	int arrival_samples_num;
-	const int *samples_index;
+	int *samples_index;
 
 	int split_variable_index;
 	float split_value;
