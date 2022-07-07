@@ -2,14 +2,14 @@
 GuXF, 9.2011, @NJUST, lastest modification 5.2022
 Contact: gxf1027@126.com.
 Try my best to implement random forests.
-Reference [1]. Leo Breiman. Random Forests. Machine Learning 45 (1), 2001: 5每32
-		  [2]. Random Forests classifier description (Official site of Leo Breiman's RF): http://stat-www.berkeley.edu/users/breiman/RandomForests/cc_home.htm
-          [3]. Ho, Tin. Random Decision Forest. 3rd International Conference on Document Analysis and Recognition, 1995: 278每282.
-		  [4]. ALGLIB , Implementation of modified random forest algorithm: http://www.alglib.net/dataanalysis/decisionforest.php
-		  [5]. Matlab 2010b Help document: "Regression and Classification by Bagging Decision Trees".
-		  [6]. Robert E.Banfield. A comparison of decision tree ensemble creation techniques. IEEE trans. on Pattern Analysis and Machine Intelligence, 2007
-		  [7]. Antonio Criminisi, Ender Konukoglu, Jamie Shotton. Decision Forests for Classification, Regression, Density Estimation, Manifold Learning and Semi-Supervised Learning. MSR-TR-2011-114. (https://www.microsoft.com/en-us/research/wp-content/uploads/2016/02/decisionForests_MSR_TR_2011_114.pdf)
-		  [8]. Geurts, P., Ernst, D. & Wehenkel, L. Extremely randomized trees. Mach Learn 63, 3每42 (2006).
+Reference 	[1]. Leo Breiman. Random Forests. Machine Learning 45 (1), 2001: 5每32
+			[2]. Random Forests classifier description (Official site of Leo Breiman's RF): http://stat-www.berkeley.edu/users/breiman/RandomForests/cc_home.htm
+			[3]. Ho, Tin. Random Decision Forest. 3rd International Conference on Document Analysis and Recognition, 1995: 278每282.
+			[4]. ALGLIB , Implementation of modified random forest algorithm: http://www.alglib.net/dataanalysis/decisionforest.php
+			[5]. Matlab 2010b Help document: "Regression and Classification by Bagging Decision Trees".
+			[6]. Robert E.Banfield. A comparison of decision tree ensemble creation techniques. IEEE trans. on Pattern Analysis and Machine Intelligence, 2007
+			[7]. Antonio Criminisi, Ender Konukoglu, Jamie Shotton. Decision Forests for Classification, Regression, Density Estimation, Manifold Learning and Semi-Supervised Learning. MSR-TR-2011-114. (https://www.microsoft.com/en-us/research/wp-content/uploads/2016/02/decisionForests_MSR_TR_2011_114.pdf)
+			[8]. Geurts, P., Ernst, D. & Wehenkel, L. Extremely randomized trees. Mach Learn 63, 3每42 (2006).
 */
 
 #pragma once
@@ -93,8 +93,8 @@ void UseDefaultSettingsForRFs(RandomCForests_info &RF_info);
 
 /*
 Description: Make sure that the elements of struct RandomCForests_info are correctly assigned and so do the labels.
-return: 1. -1  : the data_info structure is assigned with incorrect values.
-        2.  0  : other incorrectly assigned values are found, and default or recommended values are assigned to them.
+return:	1. -1  : the data_info structure is assigned with incorrect values.
+		2.  0  : other incorrectly assigned values are found, and default or recommended values are assigned to them.
 		3.  1  : values of all parameters are of correct range.
 */
 int CheckClassificationForestParameters(RandomCForests_info &RF_info);
@@ -102,21 +102,19 @@ int CheckClassificationForestParameters(RandomCForests_info &RF_info);
 /*
 Description:	Train a Random Classification Forests model
 
-[in]  1.data:    two dimension array [N][M], containing the total training data with their variable
-
-	  2.label:   the labels of the training data
-
-      3.RFinfo:  the struct contains necessary information of Random Classification Forests, namely the number of trees, and the number 
+[in]	1.data:    two dimension array [N][M], containing the total training data with their variable
+		2.label:   the labels of the training data
+		3.RFinfo:  the struct contains necessary information of Random Classification Forests, namely the number of trees, and the number 
 		   		 of variable split at each node.
-	  4.trace:   if >0, print oob error rate every 'trace' trees during training
+		4.trace:   if >0, print oob error rate every 'trace' trees during training
 
-[out] 1.loquatForest: the trained RF model, containing N trees.
+[out]	1.loquatForest: the trained RF model, containing N trees.
 
 return:
-      1. -3: The data_info structure is assigned with incorrect values.
-	  2. -2: 'loquatForest' may be allocated with memory or isn't assigned with NULL.
-	  3. -1: Error happened in function 'GrowRandomizedDLoquatTree'.
-	  4.  1: A RFs model is build successfully.
+		1. -3: The data_info structure is assigned with incorrect values.
+		2. -2: 'loquatForest' may be allocated with memory or isn't assigned with NULL.
+		3. -1: Error happened in function 'GrowRandomizedDLoquatTree'.
+		4.  1: A RFs model is build successfully.
 
 NOTE: The user MUSTN'T allocate memory for loquatForest before this function is called, and SHOULD assign NULL to 'loquatForest' structure.
 	  Memory management is handled by the function automatically.
@@ -128,7 +126,7 @@ Description:	Train a Random Forests model using adaptive stopping criterion,
 NOTE:           The maximum number of trees is bound to 'RFinfo.nTrees', and 'stopCriterion' includes parameters corresponding to the behaviour of evaluating sequential oob error.
 Reference:      A comparison of decision tree ensemble creation techniques. TPAMI07
 return:
-        1. -4: Error happened in evaluating oob error.
+		1. -4: Error happened in evaluating oob error.
 		2. -3: The data_info structure is assigned with incorrect values.
 		3. -2: 'loquatForest' may be allocated with memory or isn't assigned with NULL.
 		4. -1: Error happened in function 'GrowRandomizedDLoquatTree'.
@@ -157,18 +155,18 @@ int ReleaseClassificationForest(LoquatCForest **loquatForest);
 /*-----------------------------------------------EVALUATE and TEST-----------------------------------------------*/
 
 /*
-Description:     Predict class label of one testing sample.
-[in]:            1.data:				 one dimension array [N], containing one testing sample
-				 2.loquatForest          the trained Random Forests model, which also includes data information and model information
-				 3.nType                 1:         hard voting decision		 Count(c|data) = ﹉(t)delt{leaf_t(data).label==c}
-				                         0:         confidence voting decision   P(c|data) = ﹉(t:leaf_t(data).label==c){Pt(c|data)}
-										 otherwise: confidence 'soft' decision   P(c|data) = ﹉(t){Pt(c|data)}, 
-										                                         C = argmax(c){P(c|data)}
-																				 t=1...T(the number of trees)
-[out]:           1.label_index           Predicted class label, starting from zero.
-return:          1: Successfully
-                 0: Errors have occured when getting the arrived leafnode of the samples on certain trees. Under this condition, value of the argument 'label_index' indicates less reliability.
-				 -1:Errors have occured when getting the arrived leafnode of the samples on all of the trees.
+Description:	Predict class label of one testing sample.
+[in]:		1.data:				one dimension array [N], containing one testing sample
+			2.loquatForest:		the trained Random Forests model, which also includes data information and model information
+			3.nType:			1: hard voting decision		 Count(c|data) = ﹉(t)delt{leaf_t(data).label==c}
+								0: confidence voting decision   P(c|data) = ﹉(t:leaf_t(data).label==c){Pt(c|data)}
+								otherwise: confidence 'soft' decision   P(c|data) = ﹉(t){Pt(c|data)}, 
+																		C = argmax(c){P(c|data)}
+																		t=1...T(the number of trees)
+[out]:		1.label_index 	Predicted class label, starting from zero.
+return:		1: Successfully
+			0: Errors have occured when getting the arrived leafnode of the samples on certain trees. Under this condition, value of the argument 'label_index' indicates less reliability.
+			-1:Errors have occured when getting the arrived leafnode of the samples on all of the trees.
                  
 */
 int EvaluateOneSample(float *data, LoquatCForest *loquatForest, int &label_index, const int isHardDecision=1);
@@ -186,12 +184,12 @@ Method:         "In every tree grown in the forest, put down the oob cases and c
 				 ands assign a significance level to the z-score assuming normality."
                  Leo Breiman and Adele Cutler:(https://www.stat.berkeley.edu/~breiman/RandomForests/cc_home.htm#varimp)
 
-[in]:            1.data:				 two dimension array [N][M], containing the total training data with their variable
-				 2.label:				 the labels of training data
-				 3.loquatForest          the trained Random Forests model, which also includes data information and model information
-				 4.nType                 0: raw variable importance score
-				                         1: z-score
-[out]:           1.varImportance:        normalized raw/z-score importance score.
+[in]:			1.data:			two dimension array [N][M], containing the total training data with their variable
+				2.label:		the labels of training data
+				3.loquatForest:	the trained Random Forests model, which also includes data information and model information
+				4.nType:		0: raw variable importance score
+								1: z-score
+[out]:			1.varImportance:	normalized raw/z-score importance score.
 */
 int RawVariableImportanceScore(float **data, int *label, LoquatCForest *loquatForest, int nType, float *varImportance, bool bNormalize, char *filename=0);
 int RawVariableImportanceScore2(float** data, int* label, LoquatCForest* loquatForest, int nType, float* varImportance, bool bNormalize, char* filename = 0);
@@ -211,13 +209,13 @@ Method:		"Put each case left out in the construction of the kth tree down the kt
 			 This has proven to be unbiased in many tests."
 			 Leo Breiman and Adele Cutler:(http://www.stat.berkeley.edu/~breiman/RandomForests/cc_home.htm#ooberr)
 
-[in]   1.data:           two dimension array [N][M], containing the total training data with their variable.
-       2.label:          the labels of training data.
-	   3.loquatForest:   A trained random forest containing trees.
-[out]  1.error_rate:     Estimated generalization error.
+[in]	1.data:			two dimension array [N][M], containing the total training data with their variable.
+		2.label:		the labels of training data.
+		3.loquatForest:	A trained random forest containing trees.
+[out]	1.error_rate:	Estimated generalization error.
 
-return 1. >0             done successfully
-       2. <=0            some errors happened(0:GetArrivedLeafNode returns NULL, -1: one of at least one trees is NULL, -2: oob samples of at least one trees are missing)
+return	1. >0			done successfully
+		2. <=0			some errors happened(0:GetArrivedLeafNode returns NULL, -1: one of at least one trees is NULL, -2: oob samples of at least one trees are missing)
 */
 int OOBErrorEstimate(float **data, int *label, LoquatCForest *loquatForest, float &error_rate, int isHardDecision=1);
 
@@ -226,11 +224,11 @@ int OOBErrorEstimate(float **data, int *label, LoquatCForest *loquatForest, floa
 /*
 Description:  Compute generalization performance of trained RF model with test dataset.
 
-[in]   1.data_test:         test dataset, the number of variables and classes must be identical with the training dataset.
-       2.label_test:        class label for each samples in test dataset.
-	   3.nTestSamplesNum:   the number of samples in test dataset.
-	   4.loquatForest:      the trained RF model.
-[out]  1.error_rate:        error_rate on test dataset.
+[in]	1.data_test:		test dataset, the number of variables and classes must be identical with the training dataset.
+		2.label_test:		class label for each samples in test dataset.
+		3.nTestSamplesNum:	the number of samples in test dataset.
+		4.loquatForest:		the trained RF model.
+[out]  1.error_rate: 		error_rate on test dataset.
 */
 int ErrorOnTestSamples(float **data_test, int *label_test, int nTestSamplesNum, LoquatCForest *loquatForest, float &error_rate, int isHardDecision=1);
 
