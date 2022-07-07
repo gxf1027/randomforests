@@ -90,21 +90,19 @@ int CheckRegressionForestParameters(RandomRForests_info &RF_info);
 /*
 Description:	Train a Random Regression Forests model
 
-[in]  1.data:    two dimension array [N][M], containing the total training data with their variable
+[in]	1.data:		two dimension array [N][M], containing the total training data with their variable
+		2.target:	two dimension array [N][K], the target(output) value of the training data, multi-dimensional output is supported
+ 		3.RFinfo:	the struct contains necessary information of Random Regression Forests, namely the number of trees, and the number 
+					of variable split at each node.
+		4.bTargetNormalize: whether the target is normalized
 
-	  2.target:  two dimension array [N][K], the target(output) value of the training data, multi-dimensional output is supported
-
-      3.RFinfo:  the struct contains necessary information of Random Regression Forests, namely the number of trees, and the number 
-		   		 of variable split at each node.
-	  4.bTargetNormalize: whether the target is normalized
-
-[out] 1.loquatForest: the trained RF model, containing N trees.
+[out]	1.loquatForest: the trained RF model, containing N trees.
 
 return:
-      1. -3: The data_info structure is assigned with incorrect values.
-	  2. -2: 'loquatForest' may be allocated with memory or isn't assigned with NULL.
-	  3. -1: Error happened in function 'GrowRandomizedRLoquatTree'.
-	  4.  1: A RFs model is build successfully.
+		1. -3: The data_info structure is assigned with incorrect values.
+		2. -2: 'loquatForest' may be allocated with memory or isn't assigned with NULL.
+		3. -1: Error happened in function 'GrowRandomizedRLoquatTree'.
+		4.  1: A RFs model is build successfully.
 
 NOTE: The user MUSTN'T allocate memory for loquatForest before this function is called, and SHOULD assign NULL to 'loquatForest' structure.
       Memory management is handled by the function automatically.
@@ -116,7 +114,7 @@ int TrainRandomForestRegressor(float **data, float **target, RandomRForests_info
 /*
 Description:	Withdraw all the memory allocated for a tree structure.
 [in/out]
-	1.	loquatTree:		A tree to be deleted. And the address of this pointer pointing to the tree structure is assigned with NULL.
+		1.	loquatForest:		A forest to be deleted. And the address of this pointer pointing to the forest structure is assigned with NULL.
 */
 int ReleaseRegressionForest(LoquatRForest** loquatForest);
 
