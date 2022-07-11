@@ -239,7 +239,7 @@ int main(int argc, char** argv)
 		cout << endl;
 		delete[] mean_squared_error;
 		if (chCommand[2] != NULL)
-			SaveRandomRegressionForestModelToXML2(chCommand[2], loquatRForest);
+			SaveRandomRegressionForestModel(chCommand[2], loquatRForest);
 		break;
 	case 0:
 	default:
@@ -254,7 +254,7 @@ int main(int argc, char** argv)
 		cout << "error rate in-bag: " << error_rate * 100 << "%" << endl;
 		// Save in xml format
 		if (chCommand[2] != NULL)
-			SaveRandomClassificationForestModelToXML2(chCommand[2], loquatCForest);
+			SaveRandomClassificationForestModel(chCommand[2], loquatCForest);
 	}
 
 	if (1 != rv)

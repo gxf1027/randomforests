@@ -57,22 +57,24 @@ Description:  Read training data and their labels(for classification) or targets
 int InitalClassificationDataMatrixFormFile2(const char *fileName, float **&data, int *&label, Dataset_info_C &data_info);
 
 int InitalRegressionDataMatrixFormFile2(const char *fileName, float **&data, float **&target, Dataset_info_R &data_info);
+int InitalRegressionDataMatrixFormFile22(const char* fileName, float**& data, float*& target, Dataset_info_R& data_info);
+
 
 /*
-Description:    Save a trained Random Forest model to a XML file
+Description:    Save a trained Random Forest model to a XML/PlainText file
 [in]:  pFilePath:      file to save
-[out]: loquatForest:   A successfully trained Random Forests model
+[in]:  loquatForest:   A successfully trained Random Forests model
+[out]: outputType:     0--XML file; 1--PlainText file
 */
-void SaveRandomClassificationForestModelToXML2(const char *pFilePath, LoquatCForest *loquatForest);
-
-void SaveRandomRegressionForestModelToXML2(const char *pFilePath, LoquatRForest *loquatForest);
+void SaveRandomClassificationForestModel(const char *pFilePath, LoquatCForest *loquatForest, int outputType=0);
+void SaveRandomRegressionForestModel(const char *pFilePath, LoquatRForest *loquatForest, int outputType=0);
 /*
 Description:    Read a xml file and build a Random Forests model corresponding to the content of the xml file.
 [in]:  pFilePath:      file to save
+[in]:  fileType:       0--XML file; 1--PlainText file
 [out]: loquatForest:   loquatForest NULL pointer(NULL MUST be assigned to it when calling, memory management is handled by the function)
 */
-int BuildRandomClassificationForestModelFromXML2(const char *pFilePath, LoquatCForest *&loquatForest);
-
-int BuildRandomRegressionForestModelFromXML2(const char *pFilePath, LoquatRForest *&loquatForest);
+int BuildRandomClassificationForestModel(const char *pFilePath, int fileType, LoquatCForest *&loquatForest);
+int BuildRandomRegressionForestModel(const char *pFilePath, int fileType, LoquatRForest *&loquatForest);
 
 #endif /* _USER_INTERACTION_RF_2_H_ */

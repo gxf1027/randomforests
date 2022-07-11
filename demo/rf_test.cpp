@@ -92,7 +92,7 @@ int main(int argc, char** argv)
 		if (chCommand[0] != NULL && chCommand[1] != NULL) // -c RF_Model.xml
 		{
 
-			int rv = BuildRandomRegressionForestModelFromXML2(chCommand[0], loquatRForest);
+			int rv = BuildRandomRegressionForestModel(chCommand[0],0/*filetype:xml*/, loquatRForest);
 			if (0 > rv)
 			{
 				cout << "Reading RF model: " << chCommand[0] << " failed!" << endl;
@@ -111,7 +111,7 @@ int main(int argc, char** argv)
 	default:
 		if (chCommand[0] != NULL && chCommand[1] != NULL) // -c config.xml
 		{
-			int rv = BuildRandomClassificationForestModelFromXML2(chCommand[0], loquatCForest);
+			int rv = BuildRandomClassificationForestModel(chCommand[0], 0/*filetype:xml*/, loquatCForest);
 			if (0 > rv)
 			{
 				cout << "Reading RF model: " << chCommand[0] << " failed!" << endl;

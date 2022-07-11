@@ -3115,10 +3115,10 @@ int ErrorOnInbagTrainSamples(float **data, int *label, LoquatCForest *loquatFore
 
 int OOBErrorEstimate(float **data, int *label, LoquatCForest *loquatForest, float &error_rate, int isHardDecision)
 {
-	int Ntrees = loquatForest->RFinfo.ntrees;
+	const int ntrees = loquatForest->RFinfo.ntrees;
 	//int variables_num = loquatForest->RFinfo.datainfo.variables_num;
-	int classes_num = loquatForest->RFinfo.datainfo.classes_num;
-	int samples_num = loquatForest->RFinfo.datainfo.samples_num;
+	const int classes_num = loquatForest->RFinfo.datainfo.classes_num;
+	const int samples_num = loquatForest->RFinfo.datainfo.samples_num;
 	int i, j, k, oobnum, indx, rv=1, *pIndex = NULL;
 	struct LoquatCTreeStruct *ploquatTree = NULL;
 	const struct LoquatCTreeNode *leafNode = NULL;
@@ -3153,7 +3153,7 @@ int OOBErrorEstimate(float **data, int *label, LoquatCForest *loquatForest, floa
 	memset(bEffective, 0, sizeof(bool)*samples_num);
 	int effectiveNum = 0;
 
-	for( i=0; i<Ntrees; i++ )
+	for( i=0; i<ntrees; i++ )
 	{
 		ploquatTree = loquatForest->loquatTrees[i];
 		if( ploquatTree == NULL )

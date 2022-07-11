@@ -415,6 +415,116 @@ int InitalRegressionDataMatrixFormFile2(const char *fileName, float **&data, flo
 	return 1;
 }
 
+int InitalRegressionDataMatrixFormFile22(const char* fileName, float**& data, float*& target, Dataset_info_R& data_info)
+{
+	int i, j;
+	ifstream file(fileName, ifstream::in);
+	if (file.fail())
+	{
+		file.close();
+		return -2;
+	}
+
+	int N, M, K;
+	/*char *extraInfo=new char[100];
+	file>>extraInfo>>N;
+	file>>extraInfo>>M;
+	file>>extraInfo>>K;
+	delete [] extraInfo;*/
+
+	std::string line, subline;
+	// @totoal_sample_num= N
+	std::getline(file, line);
+	subline = line.substr(line.find("=") + 1);
+	subline.erase(0, subline.find_first_not_of(" "));
+	subline.erase(subline.find_last_not_of(" ") + 1);
+	try
+	{
+		N = stoi(subline);
+	}
+	catch (const std::exception& ex)
+	{
+		cout << "exception happened when read 'totoal_sample_num'" << endl;
+		return -1;
+	}
+
+	// @variable_num_x= M
+	std::getline(file, line);
+	subline = line.substr(line.find("=") + 1);
+	subline.erase(0, subline.find_first_not_of(" "));
+	subline.erase(subline.find_last_not_of(" ") + 1);
+	try
+	{
+		M = stoi(subline);
+	}
+	catch (const std::exception& ex)
+	{
+		cout << "exception happened when read 'variable_num_x'" << endl;
+		return -1;
+	}
+
+	// @variable_num_y= K
+	std::getline(file, line);
+	subline = line.substr(line.find("=") + 1);
+	subline.erase(0, subline.find_first_not_of(" "));
+	subline.erase(subline.find_last_not_of(" ") + 1);
+	try
+	{
+		K = stoi(subline);
+	}
+	catch (const std::exception& ex)
+	{
+		cout << "exception happened when read 'variable_num_y'" << endl;
+		return -1;
+	}
+
+	if (N <= 0 || M <= 0 || K <= 0)
+	{
+		cout << "**********************************************************" << endl;
+		cout << "Make sure that the File format is correct:" << endl;
+		cout << "@totoal_sample_num= N" << endl;
+		cout << "@variable_num_x= M" << endl;
+		cout << "@variable_num_y= K" << endl;
+		cout << "target11 target12......target1K || x11 x12......x1M" << endl;
+		cout << "target21 target22......target2K || x21 x22......x2M" << endl;
+		cout << "... ...  ... ..." << endl;
+		cout << "targetN1 targetN2......targetNK || xN1 xN2......xNM" << endl;
+		cout << "**********************************************************" << endl;
+		return -1;
+	}
+
+	cout << "**********************************************************" << endl;
+	cout << "Data set information:" << endl;
+	cout << "Number of training samples =   " << " " << N << endl;
+	cout << "Number of variables(x) =       " << " " << M << endl;
+	cout << "Number of target(y) variables =" << " " << K << endl;
+	cout << "**********************************************************" << endl;
+
+	data_info.samples_num = N;
+	data_info.variables_num_x = M;
+	data_info.variables_num_y = K;
+
+	data = new float* [N];
+	target = new float [N* data_info.variables_num_y];
+	for (i = 0; i < N; i++)
+	{
+		data[i] = new float[M];
+	}
+
+	for (i = 0; i < N; i++)
+	{
+		for (j = 0; j < K; j++)
+			file >> target[i*K+j];
+
+		for (j = 0; j < M; j++)
+			file >> data[i][j];
+	}
+
+	file.close();
+
+	return 1;
+}
+
 /*
 The overall hierarchy:
  <RandomForestModel>
@@ -1679,4 +1789,628 @@ QUIT_XML:
 	delete loquatForest;
 	loquatForest = NULL;
 	return -1;
+}
+
+
+typedef struct _treenode_classifer {
+	int index;
+	int subnode[2];
+	int feat_split;
+	float splitv;
+	int label;
+}_treenode_classifer;
+
+void SaveClassificationForestToPlainText(LoquatCForest* forest, const char* output_filename = "model1.txt")
+{
+	const int ntrees = forest->RFinfo.ntrees;
+
+	ofstream model_output(output_filename);
+	if (false == model_output.is_open())
+	{
+		return;
+	}
+
+	// output training information
+	model_output << "Trees_in_forest: " << forest->RFinfo.ntrees << endl;
+	model_output << "Variables_to_split: " << forest->RFinfo.mvariables << endl;
+	model_output << "MaxDepth: " << forest->RFinfo.maxdepth << endl;
+	model_output << "MinSamplesSplit: " << forest->RFinfo.minsamplessplit << endl;
+	model_output << "Randomness: " << forest->RFinfo.randomness << endl;
+	model_output << "samples_num: " << forest->RFinfo.datainfo.samples_num << endl;
+	model_output << "variables_num: " << forest->RFinfo.datainfo.variables_num << endl;
+	model_output << "classes_num: " << forest->RFinfo.datainfo.classes_num << endl;
+
+	for (int t = 0; t < ntrees; t++)
+	{
+		model_output << "tree: " << t + 1 << endl;
+
+		LoquatCTreeNode* root = forest->loquatTrees[t]->rootNode;
+		vector<LoquatCTreeNode*> nodes_this_level;
+		vector<LoquatCTreeNode*> nodes_next_level;
+		nodes_this_level.push_back(root);
+		int index = 0;
+		while (nodes_this_level.size() > 0)
+		{
+			LoquatCTreeNode* pNode;
+			nodes_next_level.clear();
+
+			// int num_next_level=0;
+			// for(int k=0; k<nodes_this_level.size(); k++)
+			// {
+			// 	num_next_level += nodes_this_level[k]->nodetype==enLeafNode ? 0 : 2; // 下一层有几个节点
+			// }
+
+			int next = 0;
+			const int start = index;
+			const int this_level_size = nodes_this_level.size();
+			for (int k = 0; k < this_level_size; k++)
+			{
+				pNode = nodes_this_level[k];
+				_treenode_classifer node;
+				node.index = index;
+				node.label = pNode->nodetype == enLeafNode ? pNode->leaf_node_label : -1;
+				node.feat_split = pNode->nodetype == enLeafNode ? -1 : pNode->split_variable_index;
+				node.splitv = pNode->nodetype == enLeafNode ? -1 : pNode->split_value;
+				index++;
+				if (pNode->nodetype != enLeafNode)
+				{
+					nodes_next_level.push_back(pNode->pSubNode[0]);
+					nodes_next_level.push_back(pNode->pSubNode[1]);
+					node.subnode[0] = start + this_level_size + next;
+					node.subnode[1] = start + this_level_size + next + 1;
+					next += 2;
+				}
+				else {
+					node.subnode[0] = 0;
+					node.subnode[1] = 0;
+				}
+
+				model_output << node.index << " " << node.subnode[0] << " " << node.subnode[1] << " " << node.feat_split << " " << node.splitv << " " << node.label << endl;
+			}
+
+			nodes_this_level.swap(nodes_next_level);
+			nodes_next_level.clear();
+		}
+
+	}
+
+	model_output.close();
+}
+
+typedef struct _treenode_regressor {
+	int index;
+	int subnode[2];
+	int feat_split;
+	float splitv;
+	std::vector<float> predict;
+}_treenode_regressor;
+
+void SaveRegressionForestToPlainText(LoquatRForest* forest, const char* output_filename = "model1.txt")
+{
+	const int ntrees = forest->RFinfo.ntrees;
+
+	ofstream model_output(output_filename);
+	if (false == model_output.is_open())
+	{
+		return;
+	}
+
+	// output training information
+	model_output << "Trees_in_forest: " << forest->RFinfo.ntrees << endl;
+	model_output << "Variables_to_split: " << forest->RFinfo.mvariables << endl;
+	model_output << "MaxDepth: " << forest->RFinfo.maxdepth << endl;
+	model_output << "MinSamplesSplit: " << forest->RFinfo.minsamplessplit << endl;
+	model_output << "Randomness: " << forest->RFinfo.randomness << endl;
+	model_output << "samples_num: " << forest->RFinfo.datainfo.samples_num << endl;
+	model_output << "variables_num_x: " << forest->RFinfo.datainfo.variables_num_x << endl;
+	model_output << "variables_num_y: " << forest->RFinfo.datainfo.variables_num_y << endl;
+	model_output << "normalization: " << (forest->bTargetNormalize==false ? 0 : 1) << endl;
+	model_output << "scale: ";
+	if (NULL != forest->scale)
+	{
+		for (int p = 0; p < forest->RFinfo.datainfo.variables_num_y; p++)
+		{
+			model_output << " " << forest->scale[p];
+		}
+	}
+	model_output << endl;
+	model_output << "offset: ";
+	if (NULL != forest->scale)
+	{
+		for (int p = 0; p < forest->RFinfo.datainfo.variables_num_y; p++)
+		{
+			model_output << " " << forest->offset[p];
+		}
+	}
+	model_output << endl;
+
+	for (int t = 0; t < ntrees; t++)
+	{
+		model_output << "tree: " << t + 1 << endl;
+
+		LoquatRTreeNode* root = forest->loquatTrees[t]->rootNode;
+		vector<LoquatRTreeNode*> nodes_this_level;
+		vector<LoquatRTreeNode*> nodes_next_level;
+		nodes_this_level.push_back(root);
+		int index = 0;
+		while (nodes_this_level.size() > 0)
+		{
+			LoquatRTreeNode* pNode;
+			nodes_next_level.clear();
+
+			// int num_next_level=0;
+			// for(int k=0; k<nodes_this_level.size(); k++)
+			// {
+			// 	num_next_level += nodes_this_level[k]->nodetype==enLeafNode ? 0 : 2; // 下一层有几个节点
+			// }
+
+			int next = 0;
+			const int start = index;
+			const int this_level_size = nodes_this_level.size();
+			for (int k = 0; k < this_level_size; k++)
+			{
+				pNode = nodes_this_level[k];
+				_treenode_classifer node;
+				node.index = index;
+				//node.label = pNode->nodetype == enLeafNode ? pNode->leaf_node_label : -1;
+				node.feat_split = pNode->nodetype == enLeafNode ? -1 : pNode->split_variable_index;
+				node.splitv = pNode->nodetype == enLeafNode ? -1 : pNode->split_value;
+				index++;
+				if (pNode->nodetype != enLeafNode)
+				{
+					nodes_next_level.push_back(pNode->pSubNode[0]);
+					nodes_next_level.push_back(pNode->pSubNode[1]);
+					node.subnode[0] = start + this_level_size + next;
+					node.subnode[1] = start + this_level_size + next + 1;
+					next += 2;
+				}
+				else {
+					node.subnode[0] = 0;
+					node.subnode[1] = 0;
+				}
+
+				model_output << node.index << " " << node.subnode[0] << " " << node.subnode[1] << " " << node.feat_split << " " << node.splitv;
+
+				if (enLeafNode == pNode->nodetype)
+				{
+					for (int p = 0; p < forest->RFinfo.datainfo.variables_num_y; p++)
+						model_output << " " << pNode->pLeafNodeInfo->MeanOfArrived[p];
+					model_output << endl;
+				}
+				else {
+					for (int p = 0; p < forest->RFinfo.datainfo.variables_num_y; p++)
+						model_output << " " << 0.0;
+					model_output << endl;
+				}
+			}
+
+			nodes_this_level.swap(nodes_next_level);
+			nodes_next_level.clear();
+		}
+
+	}
+
+	model_output.close();
+}
+
+LoquatCForest* BuildClassificationModelFromPlainText(const char* input_filename)
+{
+	ifstream input_file(input_filename);
+	if (false == input_file.is_open())
+	{
+		return NULL;
+	}
+
+
+	LoquatCForest* forest = new LoquatCForest;
+	vector<struct LoquatCTreeStruct*> vtrees;
+
+	std::string line;
+	for (int i = 0; i < 8; i++)
+	{
+		std::getline(input_file, line);
+		std::string tmp;
+		istringstream inputline(line);
+		if (0 == line.find("Trees_in_forest"))
+			inputline >> tmp >> forest->RFinfo.ntrees;
+		else if (0 == line.find("Variables_to_split"))
+			inputline >> tmp >> forest->RFinfo.mvariables;
+		else if (0 == line.find("MaxDepth"))
+			inputline >> tmp >> forest->RFinfo.maxdepth;
+		else if (0 == line.find("MinSamplesSplit"))
+			inputline >> tmp >> forest->RFinfo.minsamplessplit;
+		else if (0 == line.find("Randomness"))
+			inputline >> tmp >> forest->RFinfo.randomness;
+		else if (0 == line.find("samples_num"))
+			inputline >> tmp >> forest->RFinfo.datainfo.samples_num;
+		else if (0 == line.find("variables_num"))
+			inputline >> tmp >> forest->RFinfo.datainfo.variables_num;
+		else if (0 == line.find("classes_num"))
+			inputline >> tmp >> forest->RFinfo.datainfo.classes_num;
+	}
+
+	
+	int depth = 0, tree_index;
+	deque<pair<struct LoquatCTreeNode*, _treenode_classifer>> nodes_queue;
+
+	while (std::getline(input_file, line))
+	{
+		//cout << line << endl;
+		if (0 == line.find("tree"))
+		{
+			struct LoquatCTreeStruct* tree = new struct LoquatCTreeStruct;
+			tree->inbag_samples_index = NULL;
+			tree->inbag_samples_num = 0;
+			tree->leaf_node_num = 0;
+			tree->outofbag_samples_index = NULL;
+			tree->outofbag_samples_num = 0;
+			tree->rootNode = NULL;
+			vtrees.push_back(tree);
+			tree_index = vtrees.size() - 1;
+			nodes_queue.clear();
+			continue;
+		}
+
+		istringstream inputline(line);
+		_treenode_classifer _treenode;
+		inputline >> _treenode.index >> _treenode.subnode[0] >> _treenode.subnode[1] >> _treenode.feat_split >> _treenode.splitv >> _treenode.label;
+
+		struct LoquatCTreeNode* treenode = new struct LoquatCTreeNode;
+		treenode->nodetype = _treenode.index == 0 ? enRootNode : (_treenode.subnode[0] == 0 && _treenode.subnode[1] == 0 ? enLeafNode : enLinkNode);
+		if (enRootNode == treenode->nodetype)
+		{
+			vtrees[tree_index]->rootNode = treenode;
+			treenode->pParentNode = NULL;
+		}
+		if (enLeafNode == treenode->nodetype)
+		{
+			vtrees[tree_index]->leaf_node_num++;
+		}
+
+		treenode->depth = -1; // TODO
+		treenode->pParentNode = NULL; // TODO
+		treenode->pSubNode = new struct LoquatCTreeNode* [2];
+		treenode->subnodes_num = 2;
+		treenode->pSubNode[0] = treenode->pSubNode[1] = NULL;
+
+		treenode->arrival_samples_num = 0;
+		treenode->samples_index = NULL;
+		treenode->train_impurity = 0;
+		treenode->split_value = _treenode.splitv;
+		treenode->split_variable_index = _treenode.feat_split;
+
+		treenode->class_distribution = NULL;
+		treenode->leaf_confidence = 1;
+		treenode->leaf_node_label = _treenode.label;
+
+		if (treenode->nodetype != enLeafNode)
+		{
+			pair<struct LoquatCTreeNode*, _treenode_classifer> p(treenode, _treenode);
+			nodes_queue.push_back(p);
+		}
+
+
+		if (_treenode.index == nodes_queue.front().second.subnode[0])
+		{
+			treenode->pParentNode = nodes_queue.front().first;
+			nodes_queue.front().first->pSubNode[0] = treenode;
+		}
+		else if (_treenode.index == nodes_queue.front().second.subnode[1])
+		{
+			treenode->pParentNode = nodes_queue.front().first;
+			nodes_queue.front().first->pSubNode[1] = treenode;
+			nodes_queue.pop_front();
+		}
+
+	}
+
+	forest->loquatTrees = new  struct LoquatCTreeStruct* [vtrees.size()];
+	for (int t = 0; t < vtrees.size(); t++)
+	{
+		forest->loquatTrees[t] = vtrees[t];
+	}
+	forest->RFinfo.ntrees = vtrees.size();
+
+	for (int t = 0; t < forest->RFinfo.ntrees; t++)
+	{
+		vector<struct LoquatCTreeNode*> nodes_this_level, nodes_next_level;
+		struct LoquatCTreeNode* root = forest->loquatTrees[t]->rootNode;
+		if (NULL == root)
+			continue;
+
+		nodes_this_level.push_back(root);
+		int depth = 0;
+		while (nodes_this_level.size() > 0)
+		{
+			for (int n = 0; n < nodes_this_level.size(); n++)
+			{
+				nodes_this_level[n]->depth = depth;
+				if (enLeafNode == nodes_this_level[n]->nodetype)
+					continue;
+				nodes_next_level.push_back(nodes_this_level[n]->pSubNode[0]);
+				nodes_next_level.push_back(nodes_this_level[n]->pSubNode[1]);
+			}
+
+			nodes_this_level.swap(nodes_next_level);
+			nodes_next_level.clear();
+			depth++;
+		}
+
+		forest->loquatTrees[t]->depth = depth - 1;
+
+	}
+
+	input_file.close();
+	return forest;
+}
+
+LoquatRForest* BuildRegressionModelFromPlainText(const char* input_filename)
+{
+	ifstream input_file(input_filename);
+	if (false == input_file.is_open())
+	{
+		return NULL;
+	}
+
+
+	LoquatRForest* forest = new LoquatRForest;
+	forest->bTargetNormalize = false;
+	forest->scale = NULL;
+	forest->offset = NULL;
+
+	vector<struct LoquatRTreeStruct*> vtrees;
+
+	std::string line;
+	for (int i = 0; i < 11; i++)
+	{
+		std::getline(input_file, line);
+		std::string tmp;
+		istringstream inputline(line);
+		if (0 == line.find("Trees_in_forest"))
+			inputline >> tmp >> forest->RFinfo.ntrees;
+		else if (0 == line.find("Variables_to_split"))
+			inputline >> tmp >> forest->RFinfo.mvariables;
+		else if (0 == line.find("MaxDepth"))
+			inputline >> tmp >> forest->RFinfo.maxdepth;
+		else if (0 == line.find("MinSamplesSplit"))
+			inputline >> tmp >> forest->RFinfo.minsamplessplit;
+		else if (0 == line.find("Randomness"))
+			inputline >> tmp >> forest->RFinfo.randomness;
+		else if (0 == line.find("samples_num"))
+			inputline >> tmp >> forest->RFinfo.datainfo.samples_num;
+		else if (0 == line.find("variables_num_x"))
+			inputline >> tmp >> forest->RFinfo.datainfo.variables_num_x;
+		else if (0 == line.find("variables_num_y"))
+			inputline >> tmp >> forest->RFinfo.datainfo.variables_num_y;
+		else if (0 == line.find("normalization"))
+		{
+			int targetNoramlization;
+			inputline >>tmp>> targetNoramlization;
+			forest->bTargetNormalize = targetNoramlization == 0 ? false : true;
+		}
+		else if (0 == line.find("scale"))
+		{
+			if (1 == forest->RFinfo.datainfo.variables_num_y || false == forest->bTargetNormalize)
+			{
+				forest->scale = NULL;
+			}
+			else {
+				forest->scale = new float[forest->RFinfo.datainfo.variables_num_y];
+				inputline >> tmp;
+				for (int p = 0; p < forest->RFinfo.datainfo.variables_num_y; p++)
+					inputline >> forest->scale[p];
+			}
+		}
+		else if (0 == line.find("offset"))
+		{
+			if (1 == forest->RFinfo.datainfo.variables_num_y || false == forest->bTargetNormalize)
+			{
+				forest->offset = NULL;
+			}
+			else {
+				forest->offset = new float[forest->RFinfo.datainfo.variables_num_y];
+				inputline >> tmp;
+				for (int p = 0; p < forest->RFinfo.datainfo.variables_num_y; p++)
+					inputline >> forest->offset[p];
+			}
+		}
+	}
+
+	int depth = 0, tree_index;
+	deque<pair<struct LoquatRTreeNode*, _treenode_regressor>> nodes_queue;
+
+	while (std::getline(input_file, line))
+	{
+		//cout << line << endl;
+		if (0 == line.find("tree"))
+		{
+			struct LoquatRTreeStruct* tree = new struct LoquatRTreeStruct;
+			tree->inbag_samples_index = NULL;
+			tree->inbag_samples_num = 0;
+			tree->leaf_node_num = 0;
+			tree->outofbag_samples_index = NULL;
+			tree->outofbag_samples_num = 0;
+			tree->rootNode = NULL;
+			vtrees.push_back(tree);
+			tree_index = vtrees.size() - 1;
+			nodes_queue.clear();
+			continue;
+		}
+
+		istringstream inputline(line);
+		_treenode_regressor _treenode;
+		inputline >> _treenode.index >> _treenode.subnode[0] >> _treenode.subnode[1] >> _treenode.feat_split >> _treenode.splitv;
+		for (int p = 0; p < forest->RFinfo.datainfo.variables_num_y; p++)
+		{
+			float predict_v;
+			inputline >> predict_v;
+			_treenode.predict.push_back(predict_v);
+		}
+
+		struct LoquatRTreeNode* treenode = new struct LoquatRTreeNode;
+		treenode->nodetype = _treenode.index == 0 ? enRootNode : (_treenode.subnode[0] == 0 && _treenode.subnode[1] == 0 ? enLeafNode : enLinkNode);
+		if (enRootNode == treenode->nodetype)
+		{
+			vtrees[tree_index]->rootNode = treenode;
+			treenode->pParentNode = NULL;
+		}
+		if (enLeafNode == treenode->nodetype)
+		{
+			vtrees[tree_index]->leaf_node_num++;
+		}
+
+		treenode->depth = -1; // TODO
+		treenode->pParentNode = NULL; // TODO
+		treenode->pSubNode = new struct LoquatRTreeNode* [2];
+		treenode->subnodes_num = 2;
+		treenode->pSubNode[0] = treenode->pSubNode[1] = NULL;
+
+		treenode->arrival_samples_num = 0;
+		treenode->samples_index = NULL;
+		treenode->train_impurity = 0;
+		treenode->split_value = _treenode.splitv;
+		treenode->split_variable_index = _treenode.feat_split;
+
+		/*treenode->class_distribution = NULL;
+		treenode->leaf_confidence = 1;
+		treenode->leaf_node_label = _treenode.label;*/
+		if (enLeafNode == treenode->nodetype)
+		{
+			treenode->pLeafNodeInfo = new LeafNodeInfo;
+			treenode->pLeafNodeInfo->arrivedRatio = 0;
+			treenode->pLeafNodeInfo->CovMatOfArrived = NULL;
+			treenode->pLeafNodeInfo->dimension = forest->RFinfo.datainfo.variables_num_y;
+			treenode->pLeafNodeInfo->linearPredictor = NULL;
+			treenode->pLeafNodeInfo->MeanOfArrived = new float[forest->RFinfo.datainfo.variables_num_y];
+			for (int p = 0; p < forest->RFinfo.datainfo.variables_num_y; p++)
+				treenode->pLeafNodeInfo->MeanOfArrived[p] = _treenode.predict[p];
+		}
+		else {
+			treenode->pLeafNodeInfo = NULL;
+		}
+		
+
+		if (treenode->nodetype != enLeafNode)
+		{
+			pair<struct LoquatRTreeNode*, _treenode_regressor> p(treenode, _treenode);
+			nodes_queue.push_back(p);
+		}
+
+
+		if (_treenode.index == nodes_queue.front().second.subnode[0])
+		{
+			treenode->pParentNode = nodes_queue.front().first;
+			nodes_queue.front().first->pSubNode[0] = treenode;
+		}
+		else if (_treenode.index == nodes_queue.front().second.subnode[1])
+		{
+			treenode->pParentNode = nodes_queue.front().first;
+			nodes_queue.front().first->pSubNode[1] = treenode;
+			nodes_queue.pop_front();
+		}
+
+	}
+
+	forest->loquatTrees = new struct LoquatRTreeStruct* [vtrees.size()];
+	for (int t = 0; t < vtrees.size(); t++)
+	{
+		forest->loquatTrees[t] = vtrees[t];
+	}
+	forest->RFinfo.ntrees = vtrees.size();
+
+	for (int t = 0; t < forest->RFinfo.ntrees; t++)
+	{
+		vector<struct LoquatRTreeNode*> nodes_this_level, nodes_next_level;
+		struct LoquatRTreeNode* root = forest->loquatTrees[t]->rootNode;
+		if (NULL == root)
+			continue;
+
+		nodes_this_level.push_back(root);
+		int depth = 0;
+		while (nodes_this_level.size() > 0)
+		{
+			for (int n = 0; n < nodes_this_level.size(); n++)
+			{
+				nodes_this_level[n]->depth = depth;
+				if (enLeafNode == nodes_this_level[n]->nodetype)
+					continue;
+				nodes_next_level.push_back(nodes_this_level[n]->pSubNode[0]);
+				nodes_next_level.push_back(nodes_this_level[n]->pSubNode[1]);
+			}
+
+			nodes_this_level.swap(nodes_next_level);
+			nodes_next_level.clear();
+			depth++;
+		}
+
+		forest->loquatTrees[t]->depth = depth - 1;
+
+	}
+
+	input_file.close();
+	return forest;
+}
+
+
+void SaveRandomClassificationForestModel(const char* pFilePath, LoquatCForest* loquatForest, int outputType)
+{
+	switch (outputType)
+	{
+	case 1: 
+		SaveClassificationForestToPlainText(loquatForest, pFilePath);
+		break;
+	case 0:
+	default:
+		SaveRandomClassificationForestModelToXML2(pFilePath, loquatForest);
+		break;
+	}
+}
+
+
+void SaveRandomRegressionForestModel(const char* pFilePath, LoquatRForest* loquatForest, int outputType)
+{
+	switch (outputType)
+	{
+	case 1:
+		SaveRegressionForestToPlainText(loquatForest, pFilePath);
+		break;
+	case 0:
+	default:
+		SaveRandomRegressionForestModelToXML2(pFilePath, loquatForest);
+		break;
+	}
+}
+
+
+int BuildRandomClassificationForestModel(const char* pFilePath, int fileType, LoquatCForest*& loquatForest)
+{
+	switch (fileType)
+	{
+	case 1:
+		loquatForest = BuildClassificationModelFromPlainText(pFilePath);
+		break;
+	case 0:
+	default:
+		BuildRandomClassificationForestModelFromXML2(pFilePath, loquatForest);
+		break;
+	}
+
+	return 0;
+}
+
+
+int BuildRandomRegressionForestModel(const char* pFilePath, int fileType, LoquatRForest*& loquatForest)
+{
+	switch (fileType)
+	{
+	case 1:
+		loquatForest = BuildRegressionModelFromPlainText(pFilePath);
+		break;
+	case 0:
+	default:
+		BuildRandomRegressionForestModelFromXML2(pFilePath, loquatForest);
+		break;
+	}
+
+	return 0;
 }
