@@ -198,7 +198,7 @@ int RawVariableImportanceScore2(float** data, int* label, LoquatCForest* loquatF
 /*
 Description: Using in-bag samples to estimate training error.
 */
-int ErrorOnInbagTrainSamples(float **data, int *label, LoquatCForest *loquatForest, float &error_rate, int isHardDecision=1);
+int ErrorOnInbagTrainSamples(float **data, const int *label, const LoquatCForest *loquatForest, float &error_rate, int isHardDecision=1);
 
 /*
 Description: Using out-of-bag(oob) samples to estimate generalization error.
@@ -217,7 +217,7 @@ Method:		"Put each case left out in the construction of the kth tree down the kt
 return	1. >0			done successfully
 		2. <=0			some errors happened(0:GetArrivedLeafNode returns NULL, -1: one of at least one trees is NULL, -2: oob samples of at least one trees are missing)
 */
-int OOBErrorEstimate(float **data, int *label, LoquatCForest *loquatForest, float &error_rate, int isHardDecision=1);
+int OOBErrorEstimate(float** data, const int* label, const LoquatCForest* loquatForest, float& error_rate, int isHardDecision = 1);
 
 
 
@@ -230,7 +230,7 @@ Description:  Compute generalization performance of trained RF model with test d
 		4.loquatForest:		the trained RF model.
 [out]  1.error_rate: 		error_rate on test dataset.
 */
-int ErrorOnTestSamples(float **data_test, int *label_test, int nTestSamplesNum, LoquatCForest *loquatForest, float &error_rate, int isHardDecision=1);
+int ErrorOnTestSamples(float **data_test, const int *label_test, const int nTestSamplesNum, const LoquatCForest *loquatForest, float &error_rate, int isHardDecision=1);
 
 
 #endif

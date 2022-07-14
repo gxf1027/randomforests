@@ -151,7 +151,7 @@ int PredictAnTestSampleOnOneTree(float* data, int variables_num, struct LoquatCT
 Description:    Get a leaf node a specified sample falling into.
 return:         the pointer to the leaf node. So all of the attributes that leaf node possesses is available
 */
-const struct LoquatCTreeNode* GetArrivedLeafNode(LoquatCForest* RF, int tree_index, float* data);
+const struct LoquatCTreeNode* GetArrivedLeafNode(const LoquatCForest* RF, const int tree_index, float* data);
 
 void UseDefaultSettingsForRFs(RandomCForests_info &RF_info)
 {
@@ -2431,66 +2431,113 @@ int GrowRandomizedCLoquatTreeRecursively(float **data, int *label, RandomCForest
 }
 
 
-int EvaluateOneSample(float *data, LoquatCForest *loquatForest, int &label_index, const int isHardDecision)
+//int EvaluateOneSample(float *data, LoquatCForest *loquatForest, int &label_index, const int isHardDecision)
+//{
+//	int classes_num = loquatForest->RFinfo.datainfo.classes_num;
+//	int tree_num = loquatForest->RFinfo.ntrees;
+//	const struct LoquatCTreeNode *pLeafNode = NULL;
+//
+//	int *data_class_count = NULL;
+//	float *data_class_confidence = NULL;
+//	if( isHardDecision > 0 )
+//	{
+//		data_class_count = new int [classes_num];
+//		memset(data_class_count, 0, sizeof(int)*classes_num ); // 初始化都为0
+//	}
+//	else
+//	{
+//		data_class_confidence = new float [classes_num];
+//		memset(data_class_confidence, 0, sizeof(float)*classes_num ); // 初始化都为0.f
+//	}
+//
+//	int t, k, effect_trees, rv=1;
+//	for( effect_trees=0, t=0; t<tree_num; t++ )
+//	{
+//		pLeafNode = GetArrivedLeafNode(loquatForest, t, data);
+//		if( pLeafNode == NULL )
+//		{
+//			rv = 0;
+//			continue;
+//		}
+//		effect_trees++;
+//		if( isHardDecision > 0 )
+//			data_class_count[pLeafNode->leaf_node_label]++;
+//		else if( isHardDecision == 0 )
+//			data_class_confidence[pLeafNode->leaf_node_label] += pLeafNode->leaf_confidence;
+//		else
+//		{
+//			for( k=0; k<classes_num; k++ )
+//				data_class_confidence[k] += pLeafNode->class_distribution[k];
+//		}
+//	}
+//
+//	if (effect_trees == 0)
+//	{
+//		if (isHardDecision > 0)
+//			delete[] data_class_count;
+//		else
+//			delete[] data_class_confidence;
+//		rv = -1;
+//		return rv;
+//	}
+//
+//	if( isHardDecision > 0 )
+//		MaximumCountClassLabel(data_class_count, classes_num, label_index, NULL);
+//	else
+//		MaximumConfienceClassLabel(data_class_confidence, classes_num, label_index, NULL);
+//
+//
+//	if( isHardDecision >0 )
+//		delete [] data_class_count;
+//	else
+//		delete [] data_class_confidence;
+//
+//	return rv;
+//}
+
+int EvaluateOneSample(float* data, LoquatCForest* loquatForest, int& label_index, const int isHardDecision)
 {
 	int classes_num = loquatForest->RFinfo.datainfo.classes_num;
 	int tree_num = loquatForest->RFinfo.ntrees;
-	const struct LoquatCTreeNode *pLeafNode = NULL;
+	const struct LoquatCTreeNode* pLeafNode = NULL;
 
-	int *data_class_count = NULL;
-	float *data_class_confidence = NULL;
-	if( isHardDecision > 0 )
-	{
-		data_class_count = new int [classes_num];
-		memset(data_class_count, 0, sizeof(int)*classes_num ); // 初始化都为0
-	}
-	else
-	{
-		data_class_confidence = new float [classes_num];
-		memset(data_class_confidence, 0, sizeof(float)*classes_num ); // 初始化都为0.f
-	}
+	float* data_class_confidence = NULL;
+	data_class_confidence = new float[classes_num];
+	memset(data_class_confidence, 0, sizeof(float) * classes_num); // 初始化都为0.f
 
-	int t, k, effect_trees, rv=1;
-	for( effect_trees=0, t=0; t<tree_num; t++ )
+
+	int t, k, effect_trees, rv = 1;
+	for (effect_trees = 0, t = 0; t < tree_num; t++)
 	{
 		pLeafNode = GetArrivedLeafNode(loquatForest, t, data);
-		if( pLeafNode == NULL )
+		if (pLeafNode == NULL)
 		{
 			rv = 0;
 			continue;
 		}
 		effect_trees++;
-		if( isHardDecision > 0 )
-			data_class_count[pLeafNode->leaf_node_label]++;
-		else if( isHardDecision == 0 )
+		if (isHardDecision > 0 || NULL == pLeafNode->class_distribution) // 'class_distribution' is nullptr when RF was loaded from a pain text file
+			data_class_confidence[pLeafNode->leaf_node_label] += 1.0f;
+		else if (isHardDecision == 0)
 			data_class_confidence[pLeafNode->leaf_node_label] += pLeafNode->leaf_confidence;
 		else
 		{
-			for( k=0; k<classes_num; k++ )
+			for (k = 0; k < classes_num; k++)
 				data_class_confidence[k] += pLeafNode->class_distribution[k];
 		}
 	}
 
 	if (effect_trees == 0)
 	{
-		if (isHardDecision > 0)
-			delete[] data_class_count;
-		else
-			delete[] data_class_confidence;
+		delete[] data_class_confidence;
 		rv = -1;
 		return rv;
 	}
 
-	if( isHardDecision > 0 )
-		MaximumCountClassLabel(data_class_count, classes_num, label_index, NULL);
-	else
-		MaximumConfienceClassLabel(data_class_confidence, classes_num, label_index, NULL);
+	
+	MaximumConfienceClassLabel(data_class_confidence, classes_num, label_index, NULL);
 
-
-	if( isHardDecision >0 )
-		delete [] data_class_count;
-	else
-		delete [] data_class_confidence;
+	delete[] data_class_confidence;
 
 	return rv;
 }
@@ -2934,7 +2981,7 @@ int PredictAnTestSampleOnOneTree(float *data, int variables_num, struct LoquatCT
 	return -1;
 }
 
-const struct LoquatCTreeNode *GetArrivedLeafNode(LoquatCForest *RF, int tree_index, float *data)
+const struct LoquatCTreeNode *GetArrivedLeafNode(const LoquatCForest *RF, const int tree_index, float *data)
 {
 	int total_tree_num = RF->RFinfo.ntrees;
 	int variables_num = RF->RFinfo.datainfo.variables_num;
@@ -2972,196 +3019,156 @@ const struct LoquatCTreeNode *GetArrivedLeafNode(LoquatCForest *RF, int tree_ind
 	return NULL;
 }
 
-int ErrorOnInbagTrainSamples(float **data, int *label, LoquatCForest *loquatForest, float &error_rate, int isHardDecision)
+int ErrorOnInbagTrainSamples(float** data, const int* label, const LoquatCForest* loquatForest, float& error_rate, int isHardDecision)
 {
 	int Ntrees = loquatForest->RFinfo.ntrees;
 	int classes_num = loquatForest->RFinfo.datainfo.classes_num;
 	int samples_num = loquatForest->RFinfo.datainfo.samples_num;
-	int i, j, k, inbagnum, indx, rv=1, *pIndex = NULL;
-	struct LoquatCTreeStruct *ploquatTree = NULL;
-	const struct LoquatCTreeNode *leafNode = NULL;
+	int i, j, k, inbagnum, indx, rv = 1, * pIndex = NULL;
+	struct LoquatCTreeStruct* ploquatTree = NULL;
+	const struct LoquatCTreeNode* leafNode = NULL;
 	int predicted_class_index = -1;
 
-	int **data_class_count = NULL;
-	float **data_class_confidence = NULL;
+	float** data_class_confidence = NULL;
 
-	if( isHardDecision > 0 )
+	
+	data_class_confidence = new float* [samples_num];
+	assert(NULL != data_class_confidence);
+	for (i = 0; i < samples_num; i++)
 	{
-		data_class_count = new int *[samples_num];
-		assert( NULL != data_class_count );
-		for ( i=0; i<samples_num; i++ )
-		{
-			data_class_count[i] = new int [classes_num];
-			assert( NULL != data_class_count[i] );
-			memset(data_class_count[i], 0, sizeof(int)*classes_num ); // 初始化都为0
-		}
-	}
-	else
-	{
-		data_class_confidence = new float *[samples_num];
-		assert( NULL != data_class_confidence );
-		for ( i=0; i<samples_num; i++ )
-		{
-			data_class_confidence[i] = new float [classes_num];
-			assert( NULL != data_class_confidence[i] );
-			memset(data_class_confidence[i], 0, sizeof(float)*classes_num ); // 初始化都为0.f
-		}
+		data_class_confidence[i] = new float[classes_num];
+		assert(NULL != data_class_confidence[i]);
+		memset(data_class_confidence[i], 0, sizeof(float) * classes_num); // 初始化都为0.f
 	}
 
-	bool *bInbagnum_norep = new bool[samples_num];
-	assert( bInbagnum_norep != NULL );
-	bool *bHaveSeenInATree = new bool[samples_num];
-	assert( bHaveSeenInATree != NULL );
-	memset(bInbagnum_norep, false, sizeof(bool)*samples_num);
+	bool* bInbagnum_norep = new bool[samples_num];
+	assert(bInbagnum_norep != NULL);
+	bool* bHaveSeenInATree = new bool[samples_num];
+	assert(bHaveSeenInATree != NULL);
+	memset(bInbagnum_norep, false, sizeof(bool) * samples_num);
 	int inbagnum_norep = 0;
 
-	for( i=0; i<Ntrees; i++ )
+	for (i = 0; i < Ntrees; i++)
 	{
 		ploquatTree = loquatForest->loquatTrees[i];
 
-		if( ploquatTree == NULL )
+		if (ploquatTree == NULL)
 		{
 			rv = -1;
 			continue;
 		}
-		if( ploquatTree->inbag_samples_index == NULL )
+		if (ploquatTree->inbag_samples_index == NULL)
 		{
 			rv = -2;
 			continue;
 		}
 
-		memset( bHaveSeenInATree, false, sizeof(bool)*samples_num );
+		memset(bHaveSeenInATree, false, sizeof(bool) * samples_num);
 
-		inbagnum = ploquatTree->inbag_samples_num;	
+		inbagnum = ploquatTree->inbag_samples_num;
 		pIndex = ploquatTree->inbag_samples_index;
 
-		for( j=0; j<inbagnum; j++ ) // in-bag samples 会有重复
+		for (j = 0; j < inbagnum; j++) // in-bag samples 会有重复
 		{
 			indx = pIndex[j];
 
-			if( true == bHaveSeenInATree[indx] ) // 在这颗树上已经计算过这个sample
+			if (true == bHaveSeenInATree[indx]) // 在这颗树上已经计算过这个sample
 				continue;
 			else
 				bHaveSeenInATree[indx] = true;
 
-			if( false == bInbagnum_norep[indx] )
+			if (false == bInbagnum_norep[indx])
 			{
 				bInbagnum_norep[indx] = true;
 				inbagnum_norep++;
 			}
-			
+
 			leafNode = GetArrivedLeafNode(loquatForest, i, data[indx]);
-			if( NULL == leafNode )
+			if (NULL == leafNode)
 			{
 				rv = 0;   // 有错误产生，但不至于退出函数
 				continue; // 下一棵树
 			}
 
-			if( isHardDecision > 0 ) // HARD
+			if (isHardDecision > 0) // HARD
 			{
 				predicted_class_index = leafNode->leaf_node_label;
-				data_class_count[indx][predicted_class_index] += 1;
-			}else // Probabilistic
+				data_class_confidence[indx][predicted_class_index] += 1.f;
+			}
+			else // Probabilistic
 			{
-				for( k=0; k < classes_num; k++ )
+				for (k = 0; k < classes_num; k++)
 					data_class_confidence[indx][k] += leafNode->class_distribution[k];
 			}
 
 		}
 	}
 
-	int max_count = 0, error_num = 0;
-	for( i=0; i<samples_num; i++ )
+	int error_num = 0;
+	for (i = 0; i < samples_num; i++)
 	{
-		if( false == bInbagnum_norep[i] ) //可能有些sample从来没有进入到in-bag
+		if (false == bInbagnum_norep[i]) //可能有些sample从来没有进入到in-bag
 			continue;
 
-		if( isHardDecision > 0 )
-			MaximumCountClassLabel(data_class_count[i], classes_num, predicted_class_index, &max_count);
-		else
-			MaximumConfienceClassLabel(data_class_confidence[i], classes_num, predicted_class_index, NULL);
+		MaximumConfienceClassLabel(data_class_confidence[i], classes_num, predicted_class_index, NULL);
 
-		if( predicted_class_index != label[i] )
+		if (predicted_class_index != label[i])
 			error_num++;
 	}
 
-	error_rate = error_num/(float)inbagnum_norep;
+	error_rate = error_num / (float)inbagnum_norep;
 
 	// Release allocated memory
-	if( isHardDecision > 0 )
+	for (j = 0; j < samples_num; j++)
 	{
-		for ( j=0; j<samples_num; j++ )
-		{
-			delete [] data_class_count[j];
-			data_class_count[j] = NULL;
-		}
-		delete [] data_class_count;
-		data_class_count = NULL;
-	}else
-	{
-		for ( j=0; j<samples_num; j++ )
-		{
-			delete [] data_class_confidence[j];
-			data_class_confidence[j] = NULL;
-		}
-		delete [] data_class_confidence;
-		data_class_confidence = NULL;
+		delete[] data_class_confidence[j];
+		data_class_confidence[j] = NULL;
 	}
+	delete[] data_class_confidence;
+	data_class_confidence = NULL;
+	
 
-	delete [] bInbagnum_norep;
+	delete[] bInbagnum_norep;
 
 	return 1;
 }
 
-int OOBErrorEstimate(float **data, int *label, LoquatCForest *loquatForest, float &error_rate, int isHardDecision)
+int OOBErrorEstimate(float** data, const int* label, const LoquatCForest* loquatForest, float& error_rate, int isHardDecision)
 {
 	const int ntrees = loquatForest->RFinfo.ntrees;
 	//int variables_num = loquatForest->RFinfo.datainfo.variables_num;
 	const int classes_num = loquatForest->RFinfo.datainfo.classes_num;
 	const int samples_num = loquatForest->RFinfo.datainfo.samples_num;
-	int i, j, k, oobnum, indx, rv=1, *pIndex = NULL;
-	struct LoquatCTreeStruct *ploquatTree = NULL;
-	const struct LoquatCTreeNode *leafNode = NULL;
+	int i, j, k, oobnum, indx, rv = 1, * pIndex = NULL;
+	struct LoquatCTreeStruct* ploquatTree = NULL;
+	const struct LoquatCTreeNode* leafNode = NULL;
 	//float confience = 0.0f;
 	int predicted_class_index = -1;
 
-	int **data_class_count = NULL;
-	float **data_class_confidence = NULL;
-	if( isHardDecision > 0 )
+	float** data_class_confidence = NULL;
+	
+	data_class_confidence = new float* [samples_num];
+	assert(NULL != data_class_confidence);
+	for (i = 0; i < samples_num; i++)
 	{
-		data_class_count = new int *[samples_num];
-		assert( NULL != data_class_count );
-		for ( i=0; i<samples_num; i++ )
-		{
-			data_class_count[i] = new int [classes_num];
-			assert( NULL != data_class_count[i] );
-			memset(data_class_count[i], 0, sizeof(int)*classes_num); // 初始化都为0
-		}
-	}else
-	{
-		data_class_confidence = new float *[samples_num];
-		assert( NULL != data_class_confidence );
-		for ( i=0; i<samples_num; i++ )
-		{
-			data_class_confidence[i] = new float [classes_num];
-			assert( NULL != data_class_confidence[i] );
-			memset(data_class_confidence[i], 0, sizeof(float)*classes_num ); // 初始化都为0.f
-		}
+		data_class_confidence[i] = new float[classes_num];
+		assert(NULL != data_class_confidence[i]);
+		memset(data_class_confidence[i], 0, sizeof(float) * classes_num); // 初始化都为0.f
 	}
 
-	bool *bEffective = new bool[samples_num]; // 可能有些sample是所有树的inbag
-	memset(bEffective, 0, sizeof(bool)*samples_num);
+	bool* bEffective = new bool[samples_num]; // 可能有些sample是所有树的inbag
+	memset(bEffective, 0, sizeof(bool) * samples_num);
 	int effectiveNum = 0;
 
-	for( i=0; i<ntrees; i++ )
+	for (i = 0; i < ntrees; i++)
 	{
 		ploquatTree = loquatForest->loquatTrees[i];
-		if( ploquatTree == NULL )
+		if (ploquatTree == NULL)
 		{
 			continue;
 			rv = -1;
 		}
-		if( ploquatTree->outofbag_samples_index == NULL )
+		if (ploquatTree->outofbag_samples_index == NULL)
 		{
 			continue;
 			rv = -2;
@@ -3169,73 +3176,60 @@ int OOBErrorEstimate(float **data, int *label, LoquatCForest *loquatForest, floa
 
 		oobnum = ploquatTree->outofbag_samples_num;
 		pIndex = ploquatTree->outofbag_samples_index;
-		
-		for( j=0; j<oobnum; j++ )
+
+		for (j = 0; j < oobnum; j++)
 		{
 			indx = pIndex[j];
-			if( bEffective[indx] == false )
+			if (bEffective[indx] == false)
 			{
 				bEffective[indx] = true;
 				effectiveNum++;
 			}
 
 			leafNode = GetArrivedLeafNode(loquatForest, i, data[indx]);
-			if( NULL == leafNode )
+			if (NULL == leafNode)
 			{
 				rv = 0;   // 有错误产生，但不至于退出函数
 				continue; // 下一个OOB sample
 			}
 
-			if( isHardDecision > 0 ) // HARD
+			if (isHardDecision > 0 || NULL == leafNode->class_distribution) // HARD
 			{
 				predicted_class_index = leafNode->leaf_node_label;
-				data_class_count[indx][predicted_class_index] += 1;
-			}else // Probabilistic
+				data_class_confidence[indx][predicted_class_index] += 1;
+			}
+			else // Probabilistic
 			{
-				for( k=0; k < classes_num; k++ )
+				for (k = 0; k < classes_num; k++)
 					data_class_confidence[indx][k] += leafNode->class_distribution[k];
 			}
 		}
 	}
 
-	int max_count = 0, error_num = 0;
-	for( i=0; i<samples_num; i++ )
+	int error_num = 0;
+	for (i = 0; i < samples_num; i++)
 	{
-		if( false == bEffective[i] )
+		if (false == bEffective[i])
 			continue;
-		
-		if( isHardDecision > 0 )
-			MaximumCountClassLabel(data_class_count[i], classes_num, predicted_class_index, &max_count);
-		else
-			MaximumConfienceClassLabel(data_class_confidence[i], classes_num, predicted_class_index, NULL);
-		if( predicted_class_index != label[i] )
+
+		MaximumConfienceClassLabel(data_class_confidence[i], classes_num, predicted_class_index, NULL);
+		if (predicted_class_index != label[i])
 			error_num++;
 	}
 
-	error_rate = error_num/(float)effectiveNum;
+	error_rate = error_num / (float)effectiveNum;
 
 	// Release allocated memory
-	if( isHardDecision > 0 )
+	
+	for (j = 0; j < samples_num; j++)
 	{
-		for ( j=0; j<samples_num; j++ )
-		{
-			delete [] data_class_count[j];
-			data_class_count[j] = NULL;
-		}
-		delete [] data_class_count;
-		data_class_count = NULL;
-	}else
-	{
-		for ( j=0; j<samples_num; j++ )
-		{
-			delete [] data_class_confidence[j];
-			data_class_confidence[j] = NULL;
-		}
-		delete [] data_class_confidence;
-		data_class_confidence = NULL;
+		delete[] data_class_confidence[j];
+		data_class_confidence[j] = NULL;
 	}
-
-	delete [] bEffective;
+	delete[] data_class_confidence;
+	data_class_confidence = NULL;
+	
+	delete[] bEffective;
 
 	return rv;
 }
@@ -3414,103 +3408,76 @@ int OOBErrorEstimateSequential(float **data, int *label, LoquatCForest *loquatFo
 	return rv;
 }
 
-int ErrorOnTestSamples(float **data_test, int *label_test, int nTestSamplesNum, LoquatCForest *loquatForest, float &error_rate, int isHardDecision)
+int ErrorOnTestSamples(float** data_test, const int* label_test, const int nTestSamplesNum, const LoquatCForest* loquatForest, float& error_rate, int isHardDecision)
 {
 	int Ntrees = loquatForest->RFinfo.ntrees;
 	int classes_num = loquatForest->RFinfo.datainfo.classes_num;
-	int i, j, k, rv=1;
-	struct LoquatCTreeStruct *ploquatTree = NULL;
-	const struct LoquatCTreeNode *leafNode = NULL;
+	int i, j, k, rv = 1;
+	struct LoquatCTreeStruct* ploquatTree = NULL;
+	const struct LoquatCTreeNode* leafNode = NULL;
 	//float confience = 0.0f;
 	int predicted_class_index = -1;
 
-	int **data_class_count = NULL;
-	float **data_class_confidence = NULL;
+	float** data_class_confidence = NULL;
 
-	if( isHardDecision > 0 )
+	data_class_confidence = new float* [nTestSamplesNum];
+	assert(NULL != data_class_confidence);
+	for (i = 0; i < nTestSamplesNum; i++)
 	{
-		data_class_count = new int *[nTestSamplesNum];
-		assert( NULL != data_class_count );
-		for ( i=0; i<nTestSamplesNum; i++ )
-		{
-			data_class_count[i] = new int [classes_num];
-			assert( NULL != data_class_count[i] );
-			memset(data_class_count[i], 0, sizeof(int)*classes_num ); // 初始化都为0
-		}
+		data_class_confidence[i] = new float[classes_num];
+		assert(NULL != data_class_confidence[i]);
+		memset(data_class_confidence[i], 0, sizeof(float) * classes_num); // 初始化都为0.f
 	}
-	else
-	{
-		data_class_confidence = new float *[nTestSamplesNum];
-		assert( NULL != data_class_confidence );
-		for ( i=0; i<nTestSamplesNum; i++ )
-		{
-			data_class_confidence[i] = new float [classes_num];
-			assert( NULL != data_class_confidence[i] );
-			memset(data_class_confidence[i], 0, sizeof(float)*classes_num ); // 初始化都为0.f
-		}
-	}
+	
 
-	for( i=0; i<Ntrees; i++ )
+	for (i = 0; i < Ntrees; i++)
 	{
 		ploquatTree = loquatForest->loquatTrees[i];
-		if( ploquatTree == NULL )
+		if (ploquatTree == NULL)
 			continue;
 
-		for( j=0; j<nTestSamplesNum; j++ )
+		for (j = 0; j < nTestSamplesNum; j++)
 		{
 			leafNode = GetArrivedLeafNode(loquatForest, i, data_test[j]);
-			if( NULL == leafNode )
+			if (NULL == leafNode)
 			{
 				rv = 0;   // 有错误产生，但不至于退出函数
 				continue; // 下一棵树
 			}
 
-			if( isHardDecision > 0 ) // HARD
+			if (isHardDecision > 0 || NULL == leafNode->class_distribution) // HARD
 			{
 				predicted_class_index = leafNode->leaf_node_label;
-				data_class_count[j][predicted_class_index] += 1;
-			}else // Probabilistic
+				data_class_confidence[j][predicted_class_index] += 1;
+			}
+			else // Probabilistic
 			{
-				for( k=0; k < classes_num; k++ )
+				for (k = 0; k < classes_num; k++)
 					data_class_confidence[j][k] += leafNode->class_distribution[k];
 			}
-			
+
 		}
 	}
 
-	int max_count=0, error_num = 0;
-	for( i=0; i<nTestSamplesNum; i++ )
+	int error_num = 0;
+	for (i = 0; i < nTestSamplesNum; i++)
 	{
-		if( isHardDecision > 0 )
-			MaximumCountClassLabel(data_class_count[i], classes_num, predicted_class_index, &max_count);
-		else
-			MaximumConfienceClassLabel(data_class_confidence[i], classes_num, predicted_class_index, NULL);
-		if( predicted_class_index != label_test[i] )
+		MaximumConfienceClassLabel(data_class_confidence[i], classes_num, predicted_class_index, NULL);
+		if (predicted_class_index != label_test[i])
 			error_num++;
 	}
 
-	error_rate = error_num/(float)nTestSamplesNum;
+	error_rate = error_num / (float)nTestSamplesNum;
 
 	// Release allocated memory
-	if( isHardDecision > 0 )
+
+	for (j = 0; j < nTestSamplesNum; j++)
 	{
-		for ( j=0; j<nTestSamplesNum; j++ )
-		{
-			delete [] data_class_count[j];
-			data_class_count[j] = NULL;
-		}
-		delete [] data_class_count;
-		data_class_count = NULL;
-	}else
-	{
-		for ( j=0; j<nTestSamplesNum; j++ )
-		{
-			delete [] data_class_confidence[j];
-			data_class_confidence[j] = NULL;
-		}
-		delete [] data_class_confidence;
-		data_class_confidence = NULL;
+		delete[] data_class_confidence[j];
+		data_class_confidence[j] = NULL;
 	}
+	delete[] data_class_confidence;
+	data_class_confidence = NULL;
 
 	return rv;
 }
