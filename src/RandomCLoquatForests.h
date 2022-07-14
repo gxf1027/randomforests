@@ -1,15 +1,15 @@
 /*
-GuXF, 9.2011, @NJUST, lastest modification 5.2022
+GuXF, 9.2011, @NJUST, lastest modification 7.2022
 Contact: gxf1027@126.com.
 Try my best to implement random forests.
-Reference 	[1]. Leo Breiman. Random Forests. Machine Learning 45 (1), 2001: 5每32
+Reference 	[1]. Leo Breiman. Random Forests. Machine Learning 45 (1), 5每32, 2001.
 			[2]. Random Forests classifier description (Official site of Leo Breiman's RF): http://stat-www.berkeley.edu/users/breiman/RandomForests/cc_home.htm
 			[3]. Ho, Tin. Random Decision Forest. 3rd International Conference on Document Analysis and Recognition, 1995: 278每282.
 			[4]. ALGLIB , Implementation of modified random forest algorithm: http://www.alglib.net/dataanalysis/decisionforest.php
 			[5]. Matlab 2010b Help document: "Regression and Classification by Bagging Decision Trees".
 			[6]. Robert E.Banfield. A comparison of decision tree ensemble creation techniques. IEEE trans. on Pattern Analysis and Machine Intelligence, 2007
 			[7]. Antonio Criminisi, Ender Konukoglu, Jamie Shotton. Decision Forests for Classification, Regression, Density Estimation, Manifold Learning and Semi-Supervised Learning. MSR-TR-2011-114. (https://www.microsoft.com/en-us/research/wp-content/uploads/2016/02/decisionForests_MSR_TR_2011_114.pdf)
-			[8]. Geurts, P., Ernst, D. & Wehenkel, L. Extremely randomized trees. Mach Learn 63, 3每42 (2006).
+			[8]. Geurts, P., Ernst, D. & Wehenkel, L. Extremely randomized trees. Machine Learning 63, 3每42, 2006.
 */
 
 #pragma once
