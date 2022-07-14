@@ -549,7 +549,7 @@ void SaveRandomClassificationForestModelToXML2(const char *pFilePath, LoquatCFor
 	XMLDocument* doc = new XMLDocument();
 	doc->LinkEndChild(doc->NewDeclaration()); 
 
-	XMLElement *root_RF = doc->NewElement("RandomDecisionForestModel");
+	XMLElement *root_RF = doc->NewElement("RandomClassificationForestModel");
 	doc->LinkEndChild(root_RF);
 
 	// 2021-03-26
