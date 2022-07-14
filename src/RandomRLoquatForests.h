@@ -112,7 +112,7 @@ int TrainRandomForestRegressor(float **data, float **target, RandomRForests_info
 /*-----------------------------------------------CLEAR MEMORY-----------------------------------------------*/
 
 /*
-Description:	Withdraw all the memory allocated for a tree structure.
+Description:	Release all the memory allocated for a forest.
 [in/out]
 		1.	loquatForest:		A forest to be deleted. And the address of this pointer pointing to the forest structure is assigned with NULL.
 */
