@@ -846,212 +846,7 @@ int ExtremeRandomlySplitOnDLoquatNode(float **data, int samples_num, int variabl
 	else
 		return 1;
 }
-/*
-Description:	Split the data at each node in the tree.
 
-[in]  1.data:				 two dimension array [N][M], containing the total training data with their variable
-	  2.label:				 the labels of training data
-	  3.samples_num:		 the total number of samples
-	  4.variables_num:		 the total number of variables
-	  5.classes_num:		 the number of classed
-	  6.innode_samples_index:the index array of the original training data, indicating the training samples arrival at the node
-	  7.innode_num:          the number of training samples at the node
-	  8.Mvariable:           the number of candidate variables choosing to split the node
-
-[out] 1. split_variable_index:the index of variable chosen to split at the node
-      2.the value to split at the node
-
-return:
-      -1: split failed, all arrival samples may be splitted to the same subnode.
-	   0: split the batch of arrival samples using extremely random selection method.
-	   1: split successfully
-*/
-int SplitOnDLoquatNode(float **data, int *label, int samples_num, int variables_num, int classes_num, 
-					  int *innode_samples_index, int innode_num, int Mvariable, int &split_variable_index, float &split_value)
-{
-	int i, j, index, rv = 1;
-	int *selSplitIndex = new int[Mvariable];
-	float *maxv=NULL, *minv=NULL, *step=NULL, *itoa=NULL;
-	float splitv = 0;
-	double lgini, rgini, gini, mingini = 1e38;
-	maxv = new float[Mvariable];
-	minv = new float[Mvariable];
-	step = new float[Mvariable];
-	itoa = new float[Mvariable];
-	int var_index;
-
-	// randomly select the variables(attribute) candidate choosing to split on the node
-	vector<int> arrayindx;
-	for( i=0; i<variables_num; i++ )
-		arrayindx.push_back(i);
-	for( i=0; i<Mvariable; i++ )
-	{
-		int iid = rand()%(variables_num-i);
-		selSplitIndex[i] = arrayindx[iid];
-		arrayindx.erase(arrayindx.begin()+iid);
-	}
-
-// 	bool identical = true;
-// 	srand(g_random_seed++);
-// 	for( i=0; i<Mvariable; i++ )
-// 	{
-// 		identical = true;
-// 		int rC=0;
-// 		while( identical ) // 避免选择的variable序号重复
-// 		{
-// 			identical = false;
-// 			index = rand()%variables_num;
-// 			if( index < 0 )
-// 				index = 0;
-// 			else if( index >= variables_num )
-// 				index = variables_num-1;
-// 			for ( int k=0; k<i; k++ ){
-// 				if( selSplitIndex[k] == index){
-// 					identical = true;
-// 					break;
-// 				}
-// 			}
-// 
-// 			if (++rC > Mvariable*10 ) // 确保不会死循环
-// 				break;
-// 		}	
-// 		selSplitIndex[i] = index;
-// 	}
-
-	for( i=0; i<Mvariable; i++ )
-	{
-		var_index = selSplitIndex[i];
-		index = innode_samples_index[0];
-		maxv[i] = data[index][var_index];
-		minv[i] = data[index][var_index];
-		for( j=1; j<innode_num; j++ )
-		{
-			index = innode_samples_index[j];
-			if ( data[index][var_index] > maxv[i] )
-				maxv[i] = data[index][var_index];
-			else if( data[index][var_index] < minv[i] )
-				minv[i] = data[index][var_index];
-		}
-		step[i] = (maxv[i]-minv[i])/INTERVAL_STEPS_NUM;
-		itoa[i] = step[i]/100.0f;
-	}
-
-	int lcount=0, rcount=0, lcount_split, rcount_split;
-	int *lsubNodeClassnum = new int[classes_num];
-	int *rsubNodeClassnum = new int[classes_num];
-	memset(lsubNodeClassnum, 0, sizeof(int)*classes_num);
-	memset(rsubNodeClassnum, 0, sizeof(int)*classes_num);
-
-	bool bfindSplitV = false;
-	split_variable_index = -1;
-	for( j=0; j<Mvariable; j++ )  // 对于每个被选中的属性
-	{
-		var_index = selSplitIndex[j];
-
-		if( step[j] < FLT_EPSILON )	continue; // step[j] == 0
-
-		for( splitv=minv[j]-itoa[j]; splitv<maxv[j]+itoa[j]; splitv += step[j] ) 
-		{
-			lcount = 0;	rcount =0;
-			memset(lsubNodeClassnum, 0, sizeof(int)*classes_num);
-			memset(rsubNodeClassnum, 0, sizeof(int)*classes_num);
-
-			for( i=0; i<innode_num; i++ )
-			{
-				index = innode_samples_index[i];
-				if( data[index][var_index]<=splitv )
-				{
-					lcount++;
-					lsubNodeClassnum[label[index]]++;
-				}
-				else
-				{
-					rcount++;
-					rsubNodeClassnum[label[index]]++;
-				}
-
-			}
-
-			lgini = 0;	rgini = 0;
-			for( i=0; i<classes_num; i++ )
-			{
-				const int lc = lcount == 0 ? 1 : lcount;
-				const int rc = rcount == 0 ? 1 : rcount;
-				lgini += (lsubNodeClassnum[i]/(double)lc)*(lsubNodeClassnum[i]/(double)lc);
-				rgini += (rsubNodeClassnum[i]/(double)rc)*(rsubNodeClassnum[i]/(double)rc);
-			}
-			lgini = 0.5*(1.0 - lgini);
-			rgini = 0.5*(1.0 - rgini);
-			//gini = lcount/(float)innode_num*lgini + rcount/(float)innode_num*rgini;
-			gini = (lcount * lgini + rcount * rgini) / innode_num;
-			if( gini < mingini )
-			{
-				bfindSplitV = true;
-				mingini = gini;
-				split_variable_index = var_index;
-				split_value = splitv;
-				lcount_split = lcount;
-				rcount_split = rcount;
-				// 				ln = lsubNodeClassnum[0];
-				// 				lp = lsubNodeClassnum[1];
-				// 				rn = rsubNodeClassnum[0];
-				// 				rp = rsubNodeClassnum[1];
-			}
-		}
-	}
-
-	if( bfindSplitV == false ) // 如果所有被选择分量的maxv==minv
-	{
-		if ( -1 == ExtremeRandomlySplitOnDLoquatNode(data, samples_num, variables_num, innode_samples_index, innode_num, split_variable_index, split_value) )
-		{	
-			int r = rand()%Mvariable;
-			split_variable_index = selSplitIndex[r];
-			split_value = (maxv[r] + minv[r])/2.f;
-			rv = -1;
-		}else
-			rv = 0;
-	}
-
-	// 	if( leftsubnode_samples_index ){
-	// 		delete [] leftsubnode_samples_index;
-	// 		leftsubnode_samples_index = NULL;
-	// 	}
-	// 	if( rightsubnode_samples_index ){
-	// 		delete [] rightsubnode_samples_index;
-	// 		rightsubnode_samples_index = NULL;
-	// 	}
-	// 	leftsubnode_samples_index = new int [lcount_split];
-	// 	rightsubnode_samples_index = new int[rcount_split];
-	// 	leftsubnode_samples_num  = lcount_split;
-	// 	rightsubnode_samples_num = rcount_split;
-	// 
-	// 	// left/right node samples index and number
-	// 	int ll = 0, rr = 0;
-	// 	for( i=0; i<innode_num; i++ )
-	// 	{
-	// 		index = innode_samples_index[i];
-	// 		if( data[index][split_variable_index] <= split_value )
-	// 		{
-	// 			leftsubnode_samples_index[ll++] = index;
-	// 		}else
-	// 			rightsubnode_samples_index[rr++] = index;
-	// 	}
-	// 	if( split_variable_index == -1 )
-	// 	{
-	// 		cout<<"^^^^^^^^^^^"<<selSplitIndex[0]<<"^^^^^^^^^^^"<<selSplitIndex[1]<<endl;
-	// 		cout<<">>>>>>>>>>>"<<split_variable_index<<">>>>>>>>>>>>>"<<split_value<<endl;
-	// 		cout<<">>>>>>>>>>>"<<minv[0]<<" "<<maxv[0]<<"<<<<<<"<<minv[1]<<" "<<maxv[1]<<"  "<<splitv<<endl;
-	// 	}
-
-	delete [] selSplitIndex;
-	delete [] maxv;
-	delete [] minv;
-	delete [] step;
-	delete [] itoa;
-	delete [] lsubNodeClassnum;
-	delete [] rsubNodeClassnum;
-	return rv;
-}
 
 int SplitOnDLoquatNodeWithEveryAttempt(float** data, int* label, const int samples_num, const int variables_num, const int classes_num,
 		const int* innode_samples_index, const int innode_num, const int Mvariable, int& split_variable_index, float& split_value)
@@ -1155,7 +950,28 @@ int SplitOnDLoquatNodeWithEveryAttempt(float** data, int* label, const int sampl
 	return rv;
 }
 
-int SplitOnDLoquatNode2(float** data, int* label, const int samples_num, const int variables_num, const int classes_num,
+
+/*
+Description:	Split the data at each node in the tree.
+
+[in]  1.data:				 two dimension array [N][M], containing the total training data with their variable
+	  2.label:				 the labels of training data
+	  3.samples_num:		 the total number of samples
+	  4.variables_num:		 the total number of variables
+	  5.classes_num:		 the number of classed
+	  6.innode_samples_index:the index array of the original training data, indicating the training samples arrival at the node
+	  7.innode_num:          the number of training samples at the node
+	  8.Mvariable:           the number of candidate variables choosing to split the node
+
+[out] 1. split_variable_index:the index of variable chosen to split at the node
+	  2.the value to split at the node
+
+return:
+	  -1: split failed, all arrival samples may be splitted to the same subnode.
+	   0: split the batch of arrival samples using extremely random selection method.
+	   1: split successfully
+*/
+int SplitOnDLoquatNode(float** data, int* label, const int samples_num, const int variables_num, const int classes_num,
 				const int* innode_samples_index, const int innode_num, const int Mvariable, int& split_variable_index, float& split_value)
 {
 
@@ -1305,11 +1121,6 @@ typedef struct var_label {
 	float var;
 	int label;
 }var_label;
-
-int _cmp(const void* a, const void* b)
-{
-	return ((var_label*)a)->var > ((var_label*)b)->var ? 1 : -1;
-}
 
 /*
 Description:	Split the data at each node in the tree by completely search method.
@@ -1485,132 +1296,6 @@ int SplitOnDLoquatNodeCompletelySearch(float** data, int* label, int samples_num
 }
 
 /*
-int SplitOnDLoquateNodeExtremeRandomly(float **data, int *label, int samples_num, int variables_num, int classes_num, 
-									 const int *innode_samples_index, int innode_num ,int Mvariable, int &split_variable_index, float &split_value)
-{
-	int i, j, index, rv = 1;
-	int *selSplitIndex = new int[Mvariable];
-	float *maxv=NULL, *minv=NULL, *splitv_cand=NULL;
-	float lgini, rgini, gini, mingini=FLOAT_MAX;
-	maxv = new float[Mvariable];
-	minv = new float[Mvariable];
-	splitv_cand = new float[Mvariable];
-	int var_index;
-
-	//srand(g_random_seed++);
-
-	// randomly select the variables(attribute) candidate choosing to split on the node
-	vector<int> arrayindx;
-	for( i=0; i<variables_num; i++ )
-		arrayindx.push_back(i);
-	for( i=0; i<Mvariable; i++ )
-	{
-		//int iid = rand()%(variables_num-i);
-		int iid = rand_freebsd()%(variables_num-i);
-		selSplitIndex[i] = arrayindx[iid];
-		arrayindx.erase(arrayindx.begin()+iid);
-	}
-
-	for( i=0; i<Mvariable; i++ )
-	{
-		var_index = selSplitIndex[i];
-		index = innode_samples_index[0];
-		maxv[i] = data[index][var_index];
-		minv[i] = data[index][var_index];
-
-		for( j=1; j<innode_num; j++ )
-		{
-			index = innode_samples_index[j];
-			if ( data[index][var_index] > maxv[i] )
-				maxv[i] = data[index][var_index];
-			else if( data[index][var_index] < minv[i] )
-				minv[i] = data[index][var_index];
-		}
-
-		splitv_cand[i] = ((float)rand_freebsd())/RAND_MAX_RF*(maxv[i]-minv[i])+minv[i];
-	}
-
-	int lcount=0, rcount=0, lcount_split, rcount_split;
-	int *lsubNodeClassnum = new int[classes_num];
-	int *rsubNodeClassnum = new int[classes_num];
-	memset(lsubNodeClassnum, 0, sizeof(int)*classes_num);
-	memset(rsubNodeClassnum, 0, sizeof(int)*classes_num);
-
-	bool bfindSplitV = false;
-	split_variable_index = -1;
-	for( j=0; j<Mvariable; j++ )  // 对于每个被选中的属性
-	{
-		if (maxv[j] - minv[j] < FLT_EPSILON)
-			continue;
-
-		var_index = selSplitIndex[j];
-		
-		lcount = 0;	rcount =0;
-		memset(lsubNodeClassnum, 0, sizeof(int)*classes_num);
-		memset(rsubNodeClassnum, 0, sizeof(int)*classes_num);
-
-		for( i=0; i<innode_num; i++ )
-		{
-			index = innode_samples_index[i];
-			if( data[index][var_index]<=splitv_cand[j] )
-			{
-				lcount++;
-				lsubNodeClassnum[label[index]]++;
-			}
-			else
-			{
-				rcount++;
-				rsubNodeClassnum[label[index]]++;
-			}
-
-		}
-
-		lgini = 0;	rgini = 0;
-		const int lc = lcount == 0 ? 1 : lcount;
-		const int rc = rcount == 0 ? 1 : rcount;
-		for( i=0; i<classes_num; i++ )
-		{
-			lgini += (lsubNodeClassnum[i]/(float)lc)*(lsubNodeClassnum[i]/(float)lc);
-			rgini += (rsubNodeClassnum[i]/(float)rc)*(rsubNodeClassnum[i]/(float)rc);
-		}
-		lgini = 0.5f*(1.f - lgini);
-		rgini = 0.5f*(1.f - rgini);
-		gini = (lcount*lgini + rcount*rgini) / (float)innode_num;
-		if( gini < mingini )
-		{
-			bfindSplitV = true;
-			mingini = gini;
-			split_variable_index = var_index;
-			split_value = splitv_cand[j];
-			lcount_split = lcount;
-			rcount_split = rcount;
-			
-		}
-
-	}
-
-	if (bfindSplitV == false)
-	{
-		if (-1 == ExtremeRandomlySplitOnDLoquatNode(data, samples_num, variables_num, innode_samples_index, innode_num, split_variable_index, split_value))
-		{
-			split_variable_index = -1;
-			split_value = 0;
-			rv = -1;
-		}
-		else
-			rv = 0;
-	}
-
-	delete [] selSplitIndex;
-	delete [] maxv;
-	delete [] minv;
-	delete [] splitv_cand;
-	delete [] lsubNodeClassnum;
-	delete [] rsubNodeClassnum;
-	return rv;
-}*/
-
-/*
 * Implementation of the following work: 
 * P. Geurts, D. Ernst, and L. Wehenkel. Extremely randomized trees. Machine Learning, 63(1):3–42, 2006a.
 */
@@ -1619,7 +1304,7 @@ int SplitOnDLoquateNodeExtremeRandomly(float** data, int* label, int samples_num
 {
 	int i, j, index, rv = 1;
 	int selSplitIndex;
-	float maxv, minv, splitv_cand;
+	float maxv, minv, splitv_cand, feat_v;
 	float lgini, rgini, gini, mingini = FLOAT_MAX;
 
 	int lcount = 0, rcount = 0, lcount_split, rcount_split;
@@ -1648,10 +1333,11 @@ int SplitOnDLoquateNodeExtremeRandomly(float** data, int* label, int samples_num
 		for (j = 1; j < innode_num; j++)
 		{
 			index = innode_samples_index[j];
-			if (data[index][selSplitIndex] > maxv)
-				maxv = data[index][selSplitIndex];
-			else if (data[index][selSplitIndex] < minv)
-				minv = data[index][selSplitIndex];
+			feat_v = data[index][selSplitIndex];
+			if (feat_v > maxv)
+				maxv = feat_v;
+			else if (feat_v < minv)
+				minv = feat_v;
 		}
 
 		if (maxv - minv < FLT_EPSILON)
@@ -1835,99 +1521,11 @@ int SplitOnDLoquateNodeExtremeRandomly(float** data, int* label, int samples_num
 //	return 1;
 //}
 
-int ComputeClassDistributionOnOneNode(int *label, int samples_num, int classes_num, int *innode_samples_index, int innode_num, float *&class_distribution)
-{
-	if( class_distribution != NULL )
-		delete [] class_distribution;
-	class_distribution = new float[classes_num];
-	memset( class_distribution, 0, sizeof(float)*classes_num );
-
-	if( innode_num == 0 )
-	{
-		cout<<endl;
-		cout<<"-------------  ERROR:'ComputeClassDistributionOnOneNode'---------------"<<endl;
-		cout<<"Warning: innode_num = 0"<<endl;
-		cout<<"Zeroes is asssigned to 'class_distribution'"<<endl;
-		cout<<"----------------------------------------------------------------------"<<endl;
-		cout<<endl;
-
-		return 0;
-	}
-
-	int *class_num_distribution = new int[classes_num];
-	memset( class_num_distribution, 0, sizeof(int)*classes_num );
-
-	int i, index, label_index, sum;
-	for( i=0; i<innode_num; i++ )
-	{
-		index = innode_samples_index[i];
-		label_index = label[index];
-		class_num_distribution[label_index]++;
-	}
-
-	for( sum=0, i=0; i<classes_num; i++ )
-		sum += class_num_distribution[i];
-
-	if( sum != innode_num )
-	{
-		delete [] class_num_distribution;
-		return -2;
-	}
-
-	for( i=0; i<classes_num; i++ )
-		class_distribution[i] = class_num_distribution[i]/(float)innode_num;
-
-	delete [] class_num_distribution;
-
-	return 1;
-}
-
-int ComputeTrainingImpurityOnOneNode(int *label, int samples_num, int classes_num, int *innode_samples_index, int innode_num, float &impurity)
-{
-	if( innode_num ==  0)
-	{
-		cout<<endl;
-		cout<<"-------------  ERROR:'ComputeTrainingImpurityOnOneNode'---------------"<<endl;
-		cout<<"Warning: innode_num = 0"<<endl;
-		cout<<"1 is asssigned to impurity."<<endl;
-		cout<<"----------------------------------------------------------------------"<<endl;
-		cout<<endl;
-		impurity = 1.f;
-		return 0;
-	}
-
-	int i, index, label_index;
-	int *class_stat = new int[classes_num];
-	memset( class_stat, 0, sizeof(int)*classes_num );
-
-	for( i=0; i<innode_num; i++ )
-	{
-		index = innode_samples_index[i];
-		label_index = label[index];
-		class_stat[label_index]++;
-	}
-
-	float gini_impur_messu = 0.0f;
-	for( i=0; i<classes_num; i++ )
-		gini_impur_messu += ( class_stat[i] / (float)innode_num ) * ( class_stat[i] / (float)innode_num );
-	gini_impur_messu = 0.5f * (1 - gini_impur_messu);
-	impurity = gini_impur_messu;
-
-	delete [] class_stat;
-	return 1;
-}
-
 int AnalyzeTrainingSamplesArrivedAtOneNode(const int* label, const int samples_num, const int classes_num, const int* innode_samples_index, const int innode_num, float& impurity, float*& class_distribution)
 {
 	if (innode_num == 0)
 	{
-		cout << endl;
-		cout << "-------------  ERROR:'AnalyzeTrainingSamplesArrivedAtOneNode2'---------------" << endl;
-		cout << "Warning: innode_num = 0" << endl;
-		cout << "1 is asssigned to impurity." << endl;
-		cout << "----------------------------------------------------------------------" << endl;
-		cout << endl;
-		impurity = 1.f;
+		impurity = 0.f;
 		return 0;
 	}
 	if (class_distribution != NULL)
@@ -2037,7 +1635,7 @@ struct LoquatCTreeNode* GrowLoquatCTreeNodeRecursively_(float **data, int *label
 				pInputParam->mvariables, treeNode->split_variable_index, treeNode->split_value);
 			break;
 		case TREE_RANDOMNESS_MODERATE:
-			SplitOnDLoquatNode2(data, label, total_samples_num, total_variables_num, total_classes_num,
+			SplitOnDLoquatNode(data, label, total_samples_num, total_variables_num, total_classes_num,
 				treeNode->samples_index, treeNode->arrival_samples_num,
 				pInputParam->mvariables, treeNode->split_variable_index, treeNode->split_value);
 			break;
@@ -2049,7 +1647,7 @@ struct LoquatCTreeNode* GrowLoquatCTreeNodeRecursively_(float **data, int *label
 
 		
 		default:
-			SplitOnDLoquatNode2(data, label, total_samples_num, total_variables_num, total_classes_num,
+			SplitOnDLoquatNode(data, label, total_samples_num, total_variables_num, total_classes_num,
 				treeNode->samples_index, treeNode->arrival_samples_num,
 				pInputParam->mvariables, treeNode->split_variable_index, treeNode->split_value);
 			break;
@@ -2216,7 +1814,7 @@ struct LoquatCTreeNode* GrowLoquatCTreeNodeRecursively(float** data, int* label,
 				pInputParam->mvariables, treeNode->split_variable_index, treeNode->split_value);
 			break;
 		case TREE_RANDOMNESS_MODERATE:
-			SplitOnDLoquatNode2(data, label, total_samples_num, total_variables_num, total_classes_num,
+			SplitOnDLoquatNode(data, label, total_samples_num, total_variables_num, total_classes_num,
 				treeNode->samples_index, treeNode->arrival_samples_num,
 				pInputParam->mvariables, treeNode->split_variable_index, treeNode->split_value);
 			break;
@@ -2228,7 +1826,7 @@ struct LoquatCTreeNode* GrowLoquatCTreeNodeRecursively(float** data, int* label,
 
 
 		default:
-			SplitOnDLoquatNode2(data, label, total_samples_num, total_variables_num, total_classes_num,
+			SplitOnDLoquatNode(data, label, total_samples_num, total_variables_num, total_classes_num,
 				treeNode->samples_index, treeNode->arrival_samples_num,
 				pInputParam->mvariables, treeNode->split_variable_index, treeNode->split_value);
 			break;
@@ -3584,47 +3182,6 @@ int ComputeVotingMargin(float **data, int *label, int samples_num, LoquatCForest
 	return 1;
 }
 
-int GetFellLeafNodeClassDistribution(float *data, int variables_num, int classes_num, LoquatCTreeStruct *loquatTree, float *distribution)
-{
-	int max_depth_index = loquatTree->depth, cc=0;
-	struct LoquatCTreeNode *pNode = loquatTree->rootNode; 
-	int test_variables_index;
-	float test_splitv;
-
-	while(1)
-	{
-		if( pNode == NULL )
-			return -3;
-
-		if( pNode->nodetype == TreeNodeTpye::enLeafNode )
-		{
-			//memcpy_s(distribution, classes_num*sizeof(float), pNode->class_distribution, classes_num*sizeof(float));
-			memcpy(distribution, pNode->class_distribution, classes_num*sizeof(float));
-			return 1;
-		}
-
-		test_variables_index = pNode->split_variable_index;
-		test_splitv = pNode->split_value;
-		if( test_variables_index >= variables_num )
-		{
-			memset( distribution, 0, sizeof(float)*classes_num );
-			return -2;
-		}
-
-		if( data[test_variables_index] <= test_splitv )
-		{
-			pNode = pNode->pSubNode[0]; // 左枝
-		}else
-			pNode = pNode->pSubNode[1]; // 右枝
-
-		cc++;
-		if( cc > max_depth_index )
-			break;
-	}
-
-	return -1;
-}
-
 int HarvestOneLeafNode(struct LoquatCTreeNode **treeNode)
 {
 	if( *treeNode == NULL )
@@ -3763,45 +3320,6 @@ int HarvestOneLeafNode(struct LoquatCTreeNode **treeNode)
 //	return 1;
 //}
 
-int HarvestOneDLoquatTree2(struct LoquatCTreeStruct **loquatTree)
-{
-	if( (*loquatTree) == NULL )
-		return 1;
-
-	if( (*loquatTree)->inbag_samples_index != NULL )
-	{
-		delete [] (*loquatTree)->inbag_samples_index;
-		(*loquatTree)->inbag_samples_index = NULL;
-		(*loquatTree)->inbag_samples_num = 0;
-	}
-
-	if( (*loquatTree)->outofbag_samples_index != NULL )
-	{
-		delete [] (*loquatTree)->outofbag_samples_index;
-		(*loquatTree)->outofbag_samples_index = NULL;
-		(*loquatTree)->outofbag_samples_num = 0;
-	}
-
-	// 中序遍历
-	deque<LoquatCTreeNode *> dq;
-	dq.push_back((*loquatTree)->rootNode);
-	LoquatCTreeNode *tmpNode = NULL;
-	while(!dq.empty())
-	{
-		tmpNode = dq.front();
-		if( tmpNode->pSubNode != NULL )
-		{
-			if( tmpNode->pSubNode[0] )
-				dq.push_back(tmpNode->pSubNode[0]);
-			if( tmpNode->pSubNode[1] )
-				dq.push_back(tmpNode->pSubNode[1]);
-		}
-		dq.pop_front();
-		HarvestOneLeafNode(&tmpNode);
-	}
-	return 1;
-}
-
 // 2021-04-09
 void VisitAndHarvestNodes_PostOrder2(struct LoquatCTreeNode** pNode)
 {
@@ -3882,78 +3400,6 @@ int ReleaseClassificationForest(LoquatCForest **loquatForest)
 // 	delete []loquatForest->loquatTrees; // 二级指针
 // 	return 1;
 // }
-
-void _DisplayLoquatTreeInfo(struct LoquatCTreeStruct *loquatTree, RandomCForests_info RFinfo)
-{
-	cout<<endl<<"------------------------Tree Info------------------------"<<endl;
-	int i, j, nodes_num;
-	int tree_depth = loquatTree->depth;
-	struct LoquatCTreeNode **pNode = new struct LoquatCTreeNode*[1];
-	pNode[0] = loquatTree->rootNode; 
-	struct LoquatCTreeNode **pNextNode = NULL;
-
-	for( i=0; i<=tree_depth; i++ )
-	{
-		nodes_num = (int)powf(2.f, (float)i);
-		cout<<endl<<"***********************Depth: "<<i<<"***********************"<<endl;
-		pNextNode = new struct LoquatCTreeNode *[nodes_num*2];
-
-		for( j=0; j<nodes_num; j++ )
-		{
-			if( pNode[j] == NULL )
-			{
-				//cout<<"This node is NULL"<<endl;
-				pNextNode[j*2]   = NULL;
-				pNextNode[j*2+1] = NULL;
-				continue;
-			}
-			switch ( pNode[j]->nodetype )
-			{
-			case TreeNodeTpye::enLeafNode:
-				cout<<"***Leaf Node:"<<endl;	
-				cout<<"   the variable to split:"<<"no"<<"  split value:"<<"no"<<endl;
-				cout<<"   arrival number:"<<pNode[j]->arrival_samples_num<<"  impurity on training data:"<<pNode[j]->train_impurity<<endl;
-				for ( int k=0; k<RFinfo.datainfo.classes_num; k++ )
-					cout<<"   class"<<k<<": "<<pNode[j]->class_distribution[k]<<", "<<endl;
-				cout<<"   assigned class label: "<<pNode[j]->leaf_node_label<<endl;
-				break;
-			case TreeNodeTpye::enLinkNode:
-				cout<<"***Link Node:"<<endl;	
-				break;
-			case TreeNodeTpye::enRootNode:
-				cout<<"***Root Node:"<<endl;
-				break;
-			}
-
-			if( pNode[j]->nodetype == TreeNodeTpye::enLinkNode || pNode[j]->nodetype == TreeNodeTpye::enRootNode )
-			{
-				cout<<"   the variable to split:"<<pNode[j]->split_variable_index<<"  split value:"<<pNode[j]->split_value<<endl;
-				cout<<"   arrival number:"<<pNode[j]->arrival_samples_num<<"  impurity on training data:"<<pNode[j]->train_impurity<<endl;
-				for ( int k=0; k<RFinfo.datainfo.classes_num; k++ )
-					cout<<"   class"<<k<<": "<<pNode[j]->class_distribution[k]<<", ";
-				cout<<endl;
-			}
-
-			if( pNode[j]->nodetype == TreeNodeTpye::enLeafNode )
-			{
-				pNextNode[j*2]   = NULL;
-				pNextNode[j*2+1] = NULL;
-			}else
-			{
-				pNextNode[j*2]   = pNode[j]->pSubNode[0];
-				pNextNode[j*2+1] = pNode[j]->pSubNode[1];
-			}
-		}
-
-		delete [] pNode;
-		pNode = new struct LoquatCTreeNode *[nodes_num*2];
-		for ( j=0; j<nodes_num*2; j++ )
-			pNode[j] = pNextNode[j];
-		delete [] pNextNode;
-	}
-
-	delete [] pNode;
-}
 
 // 2021-03-15
 void DisplayLoquatTreeInfo(struct LoquatCTreeStruct* loquatTree, RandomCForests_info RFinfo)
