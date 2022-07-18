@@ -2727,6 +2727,7 @@ int ErrorOnInbagTrainSamples(float** data, const int* label, const LoquatCForest
 	
 
 	delete[] bInbagnum_norep;
+	delete[] bHaveSeenInATree;
 
 	return 1;
 }
