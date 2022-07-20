@@ -139,7 +139,7 @@ int main(int argc, char** argv)
 
 	float** data = NULL;
 	int* label = NULL;
-	float** target = NULL;
+	float* target = NULL;
 	Dataset_info_C datainfo_c;
 	Dataset_info_R datainfo_r;
 	int rd = 1;
@@ -200,7 +200,7 @@ int main(int argc, char** argv)
 			target_predict[i] = NULL;
 			EvaluateOneSample(data[i], loquatRForest, target_predict[i]);
 			for (int j = 0; j < datainfo_r.variables_num_y; j++)
-				mean_squared_error[j] += (target[i][j] - target_predict[i][j])*(target[i][j] - target_predict[i][j]);
+				mean_squared_error[j] += (target[i*datainfo_r.variables_num_y+j] - target_predict[i][j])*(target[i*datainfo_r.variables_num_y+j] - target_predict[i][j]);
 		}
 
 		cout << "mse: ";
@@ -304,8 +304,6 @@ GAME_OVER:
 	switch (prob)
 	{
 	case 1:
-		for (i = 0; i < samples_num; i++)
-			delete[] target[i];
 		delete[] target;
 		delete[] mean_squared_error;
 		for (int i = 0; i < datainfo_r.samples_num; i++)
