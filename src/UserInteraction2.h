@@ -56,8 +56,7 @@ Description:  Read training data and their labels(for classification) or targets
 */
 int InitalClassificationDataMatrixFormFile2(const char *fileName, float **&data, int *&label, Dataset_info_C &data_info);
 
-int InitalRegressionDataMatrixFormFile2(const char *fileName, float **&data, float **&target, Dataset_info_R &data_info);
-int InitalRegressionDataMatrixFormFile22(const char* fileName, float**& data, float*& target, Dataset_info_R& data_info);
+int InitalRegressionDataMatrixFormFile2(const char* fileName, float**& data, float*& target, Dataset_info_R& data_info);
 
 
 /*
