@@ -42,8 +42,8 @@ int main()
     TrainRandomForestClassifier(data, label, rfinfo, loquatCForest /*OUT*/, 50);
     float error_rate = 1.f;
     OOBErrorEstimate(data, label, loquatCForest, error_rate /*OUT*/);
-    // save RF model
-    SaveRandomClassificationForestModelToXML2("Modelfile.xml", loquatCForest);
+    // save RF model, 0:xml, 1:plain text
+    SaveRandomClassificationForestModel("Modelfile.xml", loquatCForest, 0);
     // clear the memory allocated for the entire forest
     ReleaseClassificationForest(&loquatCForest);
     // release money: data, label
@@ -65,7 +65,7 @@ int main()
     // read training samples if necessary 
     char filename[500] = "./dataSet/regression/Housing_Data_Set-R.txt"; 
     float** data = NULL;
-    float** target = NULL;
+    float* target = NULL;
     Dataset_info_R datainfo;
     InitalRegressionDataMatrixFormFile2(filename, data /*OUT*/, target /*OUT*/, datainfo /*OUT*/);
     // setting random forests parameters
@@ -82,8 +82,8 @@ int main()
     float* mean_squared_error = NULL;
     MSEOnOutOfBagSamples(data, target, loquatRForest, mean_squared_error /*OUT*/);
     delete[] mean_squared_error;
-    // save RF model
-    SaveRandomRegressionForestModelToXML2("Modelfile-R.xml", loquatRForest);
+    // save RF model, 0:xml, 1:plain text
+    SaveRandomRegressionForestModel("testModelfile-R.xml", loquatRForest, 0);
     // clear the memory
     ReleaseRegressionForest(&loquatRForest);
     // release money: data, target
