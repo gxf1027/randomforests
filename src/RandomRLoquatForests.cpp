@@ -2422,7 +2422,7 @@ int EvaluateOneSample(float *data, LoquatRForest *loquatForest, float *&target_p
 	return rv;
 }
 
-int MSEOnTestSamples(float **data_test, float **target_test, int nTestSamplesNum, LoquatRForest *loquatForest, float *&mean_squared_error, int nMethod/*=0*/, char *RecordName /*=NULL*/)
+int MSEOnTestSamples(float **data_test, float *target_test, int nTestSamplesNum, LoquatRForest *loquatForest, float *&mean_squared_error, int nMethod/*=0*/, char *RecordName /*=NULL*/)
 {
 	int rv =1;
 	int i, j, effect;
@@ -2452,7 +2452,7 @@ int MSEOnTestSamples(float **data_test, float **target_test, int nTestSamplesNum
 		}
 		effect++;
 		for( j=0; j<variables_num_y; j++ )
-			mean_squared_error[j] += (target_predicted[j]-target_test[i][j])*(target_predicted[j]-target_test[i][j]);
+			mean_squared_error[j] += (target_predicted[j]-target_test[i* variables_num_y +j])*(target_predicted[j]-target_test[i * variables_num_y + j]);
 
 		if( true == bOpened )
 		{
@@ -2460,7 +2460,7 @@ int MSEOnTestSamples(float **data_test, float **target_test, int nTestSamplesNum
 				record<<target_predicted[j]<<" ";
 			record<<" ";
 			for( j=0; j<variables_num_y; j++ )
-				record<<target_test[i][j]<<" ";
+				record<<target_test[i * variables_num_y + j]<<" ";
 			record<<endl;
 		}
 

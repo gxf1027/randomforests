@@ -107,7 +107,7 @@ return:
 NOTE: The user MUSTN'T allocate memory for loquatForest before this function is called, and SHOULD assign NULL to 'loquatForest' structure.
       Memory management is handled by the function automatically.
 */
-int TrainRandomForestRegressor(float **data, float **target, RandomRForests_info RFinfo, LoquatRForest *&loquatForest, bool bTargetNormalize=true, int trace=0);
+int TrainRandomForestRegressor(float **data, float *target, RandomRForests_info RFinfo, LoquatRForest *&loquatForest, bool bTargetNormalize=true, int trace=0);
 
 /*-----------------------------------------------CLEAR MEMORY-----------------------------------------------*/
 
@@ -122,9 +122,9 @@ int ReleaseRegressionForest(LoquatRForest** loquatForest);
 /*-----------------------------------------------EVALUATE and TEST-----------------------------------------------*/
 int EvaluateOneSample(float *data, LoquatRForest *loquatForest, float *&target_predicted, int nMethod=0);
 
-int MSEOnTestSamples(float **data_test, float **target, int nTestSamplesNum, LoquatRForest *loquatForest, float *&mean_squared_error, int nMethod=0, char *RecordName =NULL);
+int MSEOnTestSamples(float **data_test, float *target, int nTestSamplesNum, LoquatRForest *loquatForest, float *&mean_squared_error, int nMethod=0, char *RecordName =NULL);
 
-int MSEOnOutOfBagSamples(float **data, float **target_test, LoquatRForest *loquatForest, float *&mean_squared_error);
+int MSEOnOutOfBagSamples(float **data, float *target_test, LoquatRForest *loquatForest, float *&mean_squared_error);
 
 
 #endif
