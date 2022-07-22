@@ -159,7 +159,7 @@ int main(int argc, char** argv)
 
 	float** data = NULL;
 	int* label = NULL;
-	float** target = NULL;
+	float* target = NULL;
 	Dataset_info_C datainfo_c;
 	Dataset_info_R datainfo_r;
 
@@ -281,8 +281,6 @@ GAME_OVER:
 	switch (prob)
 	{
 	case 1:
-		for (i = 0; i < samples_num; i++)
-			delete[] target[i];
 		delete[] target;
 		break;
 	case 0:

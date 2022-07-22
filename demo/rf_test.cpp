@@ -219,7 +219,7 @@ int main(int argc, char** argv)
 				res << "[";
 				for (int j=0; j<datainfo_r.variables_num_y; j++)
 				{
-					res << target[i][j];
+					res << target[i*datainfo_r.variables_num_y+j];
 					if (j!=datainfo_r.variables_num_y-1)
 						res <<',';
 				}
