@@ -23,35 +23,35 @@ using namespace std;
 
 int main()
 {
-    // read training samples if necessary
-    char filename[500] = "./dataset/classification/pendigits.tra";
-    float** data = NULL;
-    int* label = NULL;
-    Dataset_info_C datainfo;
-    InitalClassificationDataMatrixFormFile2(filename, data/*OUT*/, label/*OUT*/, datainfo/*OUT*/);
-    // setting random forests parameters
-    RandomCForests_info rfinfo;
-    rfinfo.datainfo = datainfo;
-    rfinfo.maxdepth = 40;
-    rfinfo.ntrees = 500;
-    rfinfo.mvariables = (int)sqrtf(datainfo.variables_num);
-    rfinfo.minsamplessplit = 5;
-    rfinfo.randomness = 1;
-    // train forest
-    LoquatCForest* loquatCForest = NULL;
-    TrainRandomForestClassifier(data, label, rfinfo, loquatCForest /*OUT*/, 50);
-    float error_rate = 1.f;
-    OOBErrorEstimate(data, label, loquatCForest, error_rate /*OUT*/);
-    // save RF model, 0:xml, 1:plain text
-    SaveRandomClassificationForestModel("Modelfile.xml", loquatCForest, 0);
-    // clear the memory allocated for the entire forest
-    ReleaseClassificationForest(&loquatCForest);
-    // release money: data, label
-    for (int i = 0; i < datainfo.samples_num; i++)
-	delete[] data[i];
-    delete[] data;
-    delete[] label;
-    return 0;
+	// read training samples if necessary
+	char filename[500] = "./DataSet/Classification/pendigits.tra";
+	float** data = NULL;
+	int* label = NULL;
+	Dataset_info_C datainfo;
+	InitalClassificationDataMatrixFormFile2(filename, data/*OUT*/, label/*OUT*/, datainfo/*OUT*/);
+	// setting random forests parameters
+	RandomCForests_info rfinfo;
+	rfinfo.datainfo = datainfo;
+	rfinfo.maxdepth = 40;
+	rfinfo.ntrees = 500;
+	rfinfo.mvariables = (int)sqrtf(datainfo.variables_num);
+	rfinfo.minsamplessplit = 5;
+	rfinfo.randomness = 1;
+	// train forest
+	LoquatCForest* loquatCForest = NULL;
+	TrainRandomForestClassifier(data, label, rfinfo, loquatCForest /*OUT*/, 50);
+	float error_rate = 1.f;
+	OOBErrorEstimate(data, label, loquatCForest, error_rate /*OUT*/);
+	// save RF model, 0:xml, 1:plain text
+	SaveRandomClassificationForestModel("Modelfile.xml", loquatCForest, 0);
+	// clear the memory allocated for the entire forest
+	ReleaseClassificationForest(&loquatCForest);
+	// release money: data, label
+	for (int i = 0; i < datainfo.samples_num; i++)
+   		delete[] data[i];
+	delete[] data;
+	delete[] label;
+	return 0;
 }
 ```
 （2）回归森林
@@ -62,39 +62,36 @@ using namespace std;
 
 int main()
 {
-    // read training samples if necessary 
-    char filename[500] = "./dataSet/regression/Housing_Data_Set-R.txt"; 
-    float** data = NULL;
-    float* target = NULL;
-    Dataset_info_R datainfo;
-    InitalRegressionDataMatrixFormFile2(filename, data /*OUT*/, target /*OUT*/, datainfo /*OUT*/);
-    // setting random forests parameters
-    RandomRForests_info rfinfo;
-    rfinfo.datainfo = datainfo;
-    rfinfo.maxdepth = 40;
-    rfinfo.ntrees = 200;
-    rfinfo.mvariables = (int)(datainfo.variables_num_x / 3.0 + 0.5); 
-    rfinfo.minsamplessplit = 5;
-    rfinfo.randomness = 1; 
-    // train forest
-    LoquatRForest* loquatRForest = NULL;
-    TrainRandomForestRegressor(data, target, rfinfo, loquatRForest /*OUT*/, false, 20);
-    float* mean_squared_error = NULL;
-    MSEOnOutOfBagSamples(data, target, loquatRForest, mean_squared_error /*OUT*/);
-    delete[] mean_squared_error;
-    // save RF model, 0:xml, 1:plain text
-    SaveRandomRegressionForestModel("testModelfile-R.xml", loquatRForest, 0);
-    // clear the memory
-    ReleaseRegressionForest(&loquatRForest);
-    // release money: data, target
-    for (int i = 0; i < datainfo.samples_num; i++)
-    {
-        delete[] data[i];
-	delete[] target[i];
-    }	
-    delete[] data;
-    delete[] target;
-    return 0;
+	// read training samples if necessary 
+	char filename[500] = "./DataSet/Regression/Housing_Data_Set-R.txt"; 
+	float** data = NULL;
+	float* target = NULL;
+	Dataset_info_R datainfo;
+	InitalRegressionDataMatrixFormFile2(filename, data /*OUT*/, target /*OUT*/, datainfo /*OUT*/);
+	// setting random forests parameters
+	RandomRForests_info rfinfo;
+	rfinfo.datainfo = datainfo;
+	rfinfo.maxdepth = 40;
+	rfinfo.ntrees = 200;
+	rfinfo.mvariables = (int)(datainfo.variables_num_x / 3.0 + 0.5); 
+	rfinfo.minsamplessplit = 5;
+	rfinfo.randomness = 1; 
+	// train forest
+	LoquatRForest* loquatRForest = NULL;
+	TrainRandomForestRegressor(data, target, rfinfo, loquatRForest /*OUT*/, false, 20);
+	float* mean_squared_error = NULL;
+	MSEOnOutOfBagSamples(data, target, loquatRForest, mean_squared_error /*OUT*/);
+	delete[] mean_squared_error;
+	// save RF model, 0:xml, 1:plain text
+	SaveRandomRegressionForestModel("testModelfile-R.xml", loquatRForest, 0);
+	// clear the memory
+	ReleaseRegressionForest(&loquatRForest);
+	// release money: data, target
+	for (int i = 0; i < datainfo.samples_num; i++)
+		   delete[] data[i];
+	delete[] data;
+	delete[] target;
+	return 0;
 }
 ```
 
