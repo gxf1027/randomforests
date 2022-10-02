@@ -1295,6 +1295,168 @@ int SplitOnDLoquatNodeCompletelySearch(float** data, int* label, int samples_num
 	return rv;
 }
 
+// 修改了申请内存方式，以及其他细节（见for循环中的ptr）
+int SplitOnDLoquatNodeCompletelySearch2(float** data, int* label, int samples_num, int variables_num, int classes_num,
+    const int* innode_samples_index, int innode_num, int Mvariable, int& split_variable_index, float& split_value)
+{
+    int i, j, k, index, rv = 1;
+    float splitv = 0;
+    float lgini, rgini, gini, gini_best = -1e20;
+    int lcount = 0, rcount = 0;
+
+#ifdef TEST_CHECK
+    int* labelstat = new int[classes_num];
+    memset(labelstat, 0, sizeof(int) * classes_num);
+    for (k = 0; k < innode_num; k++)
+    {
+        labelstat[label[innode_samples_index[k]]]++;
+    }
+#endif
+    // randomly select the variables(attribute) candidate choosing to split on the node
+    vector<int> arrayindx;
+    for (i = 0; i < variables_num; i++)
+        arrayindx.push_back(i);
+
+    unsigned char *memblock = new unsigned char[classes_num*innode_num*sizeof(float)+innode_num*sizeof(var_label)+classes_num*sizeof(float*)];
+
+    float** labelsCum = new float* [classes_num]; // 类别累计直方图
+    labelsCum[0] = (float *)memblock;
+    for (k = 1; k < classes_num; k++)
+    {
+        labelsCum[k] = labelsCum[k-1]+innode_num;
+        //memset(labelsCum[k], 0, sizeof(float) * innode_num);
+    }
+
+    var_label* vls = (var_label *)(memblock+classes_num*innode_num*sizeof(float));
+    bool bfindSplitV = false;
+    split_variable_index = -1;
+
+    for (j = 0; j < Mvariable; j++)
+    {
+
+        const int iid = rand_freebsd() % (variables_num - j);
+        const int selSplitIndex = arrayindx[iid];
+        arrayindx.erase(arrayindx.begin() + iid);
+        assert(selSplitIndex >= 0 && selSplitIndex < variables_num);
+
+        for (k = 0; k < classes_num; k++)
+        {
+            memset(labelsCum[k], 0, sizeof(float) * innode_num);
+        }
+
+
+        for (k = 0; k < innode_num; k++)
+        {
+            index = innode_samples_index[k];
+            vls[k].var = data[index][selSplitIndex];
+            vls[k].label = label[index];
+        }
+        // 用自定义函数对象排序
+        struct {
+            bool operator()(var_label a, var_label b) const
+            {
+                return a.var < b.var;
+            }
+        } customComp;
+
+        std::sort(vls, vls+ innode_num, customComp);
+
+        // 计算累计直方图(需排序后)
+        for (k = 0; k < innode_num; k++)
+        {
+            labelsCum[vls[k].label][k] = 1.f;
+        }
+
+        for (i = 0; i < classes_num; i++)
+        {
+            float *ptr = labelsCum[i];
+            for (k = 1; k < innode_num; k++)
+            {
+                //labelsCum[i][k] += labelsCum[i][k - 1];
+                ptr[k] += ptr[k-1];
+            }
+        }
+
+        /*labelsCum[vls[0].label][0] = 1.f;
+        for (k = 1; k < innode_num; k++)
+        {
+            for (i = 0; i < classes_num; i++)
+            {
+                labelsCum[i][k] = labelsCum[i][k - 1] + (vls[k].label == i);
+            }
+        }*/
+
+#ifdef TEST_CHECK
+        for (int c = 0; c < classes_num; c++)
+        {
+            assert(labelsCum[c][innode_num - 1] == labelstat[c]);
+        }
+#endif
+
+        // 找最佳split
+        for (k = 1; k < innode_num; k++)
+        {
+            assert(vls[k].var >= vls[k - 1].var);
+            if (vls[k].var - vls[k-1].var < FLT_EPSILON)
+                continue;
+
+            splitv = 0.5f * (vls[k].var + vls[k - 1].var);
+            // calc gini
+            lcount = k;
+            rcount = innode_num - k;
+            lgini = 0.f;
+            rgini = 0.f;
+            float tmpv = 0.f;
+            float *ptr;
+            for (i = 0; i < classes_num; i++)
+            {
+                // lgini += labelsCum[i][k - 1] * labelsCum[i][k - 1];
+                // tmpv = labelsCum[i][innode_num - 1] - labelsCum[i][k - 1];
+                // rgini += tmpv * tmpv;
+
+                ptr = labelsCum[i];
+                lgini += ptr[k - 1] *ptr[k - 1];
+                tmpv = ptr[innode_num - 1] - ptr[k - 1];
+                rgini += tmpv * tmpv;
+            }
+            /*
+            lgini = (1.0 - lgini / (1.0 * lcount * lcount)) * 0.5;
+            rgini = (1.0 - rgini / (1.0 * rcount * rcount)) * 0.5;
+            // gini = lcount/(float)innode_num*lgini + rcount/(float)innode_num*rgini;
+            gini = (lcount * lgini + rcount * rgini) / innode_num; //+ (innode_num<500 ? 0 : 0.05) * (lcount * 1.0 / innode_num - 0.5) * (lcount * 1.0 / innode_num - 0.5);
+            */
+            gini = lgini / lcount + rgini / rcount;
+            if (gini > gini_best)
+            {
+                bfindSplitV = true;
+                gini_best = gini;
+                split_variable_index = selSplitIndex;
+                split_value = splitv;
+            }
+        }
+
+    }
+    if (bfindSplitV == false)
+    {
+        if (-1 == ExtremeRandomlySplitOnDLoquatNode(data, samples_num, variables_num, innode_samples_index, innode_num, split_variable_index, split_value))
+        {
+            split_variable_index = -1;
+            split_value = 0;
+            rv = -1;
+        }
+        else
+            rv = 0;
+    }
+    
+    delete[] memblock;
+    delete[] labelsCum;
+
+#ifdef TEST_CHECK
+    delete[] labelstat;
+#endif
+    return rv;
+}
+
 /*
 * Implementation of the following work: 
 * P. Geurts, D. Ernst, and L. Wehenkel. Extremely randomized trees. Machine Learning, 63(1):3–42, 2006a.
@@ -1805,11 +1967,10 @@ struct LoquatCTreeNode* GrowLoquatCTreeNodeRecursively(float** data, int* label,
 		//////////////////////////test//////////////////////////
 		// split_count++;
 		// time_t startTime = clock();
-
 		switch (pInputParam->randomness)
 		{
 		case TREE_RANDOMNESS_WEAK:
-			SplitOnDLoquatNodeCompletelySearch(data, label, total_samples_num, total_variables_num, total_classes_num,
+;			SplitOnDLoquatNodeCompletelySearch2(data, label, total_samples_num, total_variables_num, total_classes_num,
 				treeNode->samples_index, treeNode->arrival_samples_num,
 				pInputParam->mvariables, treeNode->split_variable_index, treeNode->split_value);
 			break;

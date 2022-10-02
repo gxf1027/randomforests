@@ -17,8 +17,6 @@ Reference 	[1]. Leo Breiman. Random Forests. Machine Learning 45 (1), 5¨C32, 200
 #define _GXF_PLANTING_CLASSIFICATION_LOQUAT_FORESTS_
 
 #include <string>
-using namespace std;
-
 #include "SharedRoutines.h"
 
 /*-----------------------------------------------STRUCTURE DIFINITION-----------------------------------------------*/
@@ -141,7 +139,7 @@ Description:	Output detail of Random Forest model
 
 	  2.out:    std::out, file(an object of ofstream) or others
 */
-void PrintForestInfo(const LoquatCForest *forest, ostream &out);
+void PrintForestInfo(const LoquatCForest *forest, std::ostream &out);
 
 /*-----------------------------------------------CLEAR MEMORY-----------------------------------------------*/
 
