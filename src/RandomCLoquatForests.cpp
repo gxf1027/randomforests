@@ -712,24 +712,6 @@ int TrainRandomForestClassifier(float **data, int *label, RandomCForests_info RF
 	return 1;
 }
 
-int isConstantLabels(int *labels, int *index, int num)
-{
-	if( num <=0 )
-		return -1;
-
-	if( num == 1 )
-		return 1;
-
-	int label = labels[index[0]];
-	for( int i=1; i<num; i++ )
-	{
-		if( labels[index[i]] != label )
-			return 0;
-	}
-
-	return 1;
-}
-
 void MaximumConfienceClassLabel(const float* const class_distribution, const int class_num, int &label, float *max_confidence)
 {
 	float max_conf = class_distribution[0];
@@ -1760,7 +1742,6 @@ struct LoquatCTreeNode* GrowLoquatCTreeNodeRecursively_(float **data, int *label
 	bool isFewSamples = (treeNode->arrival_samples_num <= pInputParam->leafMinSamples);
 	bool isLowImpurity = (treeNode->train_impurity < STOP_CRITERION_MIN_GINI_IMPURITY);
 	bool isMaxDepth = (treeNode->depth == pInputParam->maxDepth - 1);  // depth is the index of the level, which is from 0.
-	//bool rule3 = (1 == isConstantLabels( label, treeNode->samples_index, treeNode->arrival_samples_num));
 	// 2021-03-24
 	bool isEqualConf = false;
 	float max_conf, second_max_conf;
@@ -2698,7 +2679,7 @@ int ComputeProximitiesMatrix(float **data, LoquatCForest *loquatForest, float **
 			return 1;
 }
 
-int PredictAnTestSampleOnOneTree(float *data, int variables_num, struct LoquatCTreeStruct *loquatTree, int &predicted_class_index, float &confidence)
+int PredictAnTestSampleOnOneTree(float *data, const int variables_num, struct LoquatCTreeStruct *loquatTree, int &predicted_class_index, float &confidence)
 {
 	int max_depth_index = loquatTree->depth, cc=0;
 	struct LoquatCTreeNode *pNode = loquatTree->rootNode;
