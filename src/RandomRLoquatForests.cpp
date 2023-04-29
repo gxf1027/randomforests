@@ -1003,7 +1003,7 @@ int _SplitOnRLoquatNodeCompletelySearch(float** data, float* target, int variabl
 					{
 						rMean[m] += target[index*variables_num_y+m];
 						for (n = 0; n < variables_num_y; n++)
-							rCov[m][n] += 1.0*target[index*variables_num_y+m] * target[index*variables_num_y*n];
+							rCov[m][n] += 1.0*target[index*variables_num_y+m] * target[index*variables_num_y+n];
 					}
 				}
 			}
