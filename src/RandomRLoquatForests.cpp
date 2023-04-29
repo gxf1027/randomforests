@@ -1654,7 +1654,7 @@ void CalculateLeafNodeInformation(float **data, float *target, const int *sample
 		{
 			pLeafNodeInfo->MeanOfArrived[j] += target[index*variable_num_y+j];
 			for( k=0; k<variable_num_y; k++ )
-				pLeafNodeInfo->CovMatOfArrived[j][k] += 1.0*target[index * variable_num_y + j]*target[index*variable_num_y*k];
+				pLeafNodeInfo->CovMatOfArrived[j][k] += 1.0*target[index * variable_num_y + j]*target[index*variable_num_y + k];
 		}
 	}
 
