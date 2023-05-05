@@ -1008,6 +1008,9 @@ int _SplitOnRLoquatNodeCompletelySearch(float** data, float* target, int variabl
 				}
 			}
 
+			if (0 == lcount || 0 == rcount)
+				continue;
+				
 			int ld = (lcount == 0) ? 1 : lcount;
 			int rd = (rcount == 0) ? 1 : rcount;
 			for (m = 0; m < variables_num_y; m++)
