@@ -1,0 +1,12 @@
+language: cpp
+sudo: required
+dist: bionic
+compiler:
+  - gcc
+  - clang
+os:
+  - linux
+
+
+script:
+  - make
