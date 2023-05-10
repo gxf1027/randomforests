@@ -1,12 +1,19 @@
 language: cpp
 sudo: required
 dist: bionic
+
+addons:
+  apt:
+    sources:
+    - ubuntu-toolchain-r-test
+    packages:
+    - g++-4.8
+
 compiler:
   - gcc
   - clang
 os:
   - linux
-
 
 script:
   - make
