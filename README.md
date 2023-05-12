@@ -103,6 +103,7 @@ int main()
 	rfinfo.mvariables = (int)(datainfo.variables_num_x / 3.0 + 0.5); 
 	rfinfo.minsamplessplit = 5;
 	rfinfo.randomness = 1; 
+	rfinfo.predictionModel=PredictionModel::constant;
 	// train forest
 	LoquatRForest* loquatRForest = NULL;
 	TrainRandomForestRegressor(data, target, rfinfo, loquatRForest /*OUT*/, false, 20);
