@@ -1,6 +1,9 @@
 /*
 Author: GXF
 Contact: gxf1027@126.com
+Train random forests from command lines
+For example:
+./rf_train -p 1 -d dataset.txt -c rf_config.xml -o rf_model.xml
 */
 
 #include <iostream>
@@ -102,6 +105,7 @@ int main(int argc, char** argv)
 			else {
 				// 其他参数
 				RFinfo_R.predictionModel = PredictionModel::constant; // 不对外开放
+				RFinfo_R.splitCrierion = SplitCriterion::mse;
 			}
 		}
 		else // -d data.txt
