@@ -13,11 +13,8 @@ using namespace std;
 #include "RandomRLoquatForests.h"
 #include "SharedRoutines.h"
 
-//#define STOP_CRITERION_NUM_RATIO_R		0.00005 // 0.008 /*default*/
 #define INTERVAL_STEPS_NUM				50
 #define VERY_SMALL_VALUE				1e-10f
-#define FLOAT_MAX						3.0e38f
-#define FLOAT_MIN						1.0e-38f
 #define DEFAULT_MIN_SAMPLES				5
 #define DEFAULT_MAX_TREE_DEPTH_R		40
 
@@ -33,6 +30,7 @@ void UseDefaultSettingsForRFs(RandomRForests_info &RF_info)
 	RF_info.minsamplessplit = DEFAULT_MIN_SAMPLES;
 	RF_info.predictionModel = PredictionModel::constant;
 	RF_info.randomness = RF_TREE_RANDOMNESS::TREE_RANDOMNESS_WEAK;
+	RF_info.splitCrierion = SplitCriterion::mse;
 }
 
 int CheckRegressionForestParameters(RandomRForests_info &RF_info)
@@ -96,6 +94,15 @@ int CheckRegressionForestParameters(RandomRForests_info &RF_info)
 		cout << ">>>>thus,  the default value:" << RF_info.minsamplessplit << " is assigned to 'minsamplessplit'." << endl;
 		rv = 0;
 	}
+
+	if (RF_info.predictionModel != PredictionModel::constant && RF_info.predictionModel != PredictionModel::linear)
+		RF_info.predictionModel = PredictionModel::constant;
+
+
+	RF_info.splitCrierion=SplitCriterion::mse;
+	// TODO
+	// if (RF_info.splitCrierion != SplitCriterion::mse && RF_info.splitCrierion != SplitCriterion::covar)
+	// 	RF_info.splitCrierion = SplitCriterion::mse;
 	
 	return rv;
 }
@@ -699,13 +706,7 @@ int _SplitOnRLoquatNodeCompletelySearchBySort1D(float** data, float* target, int
 			lCov = targetSqrCum[k - 1] / lcount - lMean * lMean;
 			rCov = (targetSqrCum[innode_num - 1] - targetSqrCum[k - 1]) / rcount - rMean * rMean;
 			/*
-			if (lCov <= 0)
-				lCov = 1e-38;
-			if (rCov <= 0)
-				rCov = 1e-38;
-
 			assert(lCov >= 0 && rCov >= 0);
-			gini_like = float(lcount / (double)innode_num * log(lCov) + rcount / (double)innode_num * log(rCov));
 			*/
 			gini_like = (lcount * lCov + rcount * rCov) / innode_num;
 
@@ -917,8 +918,6 @@ int _SplitOnRLoquatNodeCompletelySearchBySort2D(float** data, float* target, int
 			rv = 0;
 	}
 
-	//rv = (bfindSplitV == false ? -1 : 0);
-
 	delete[] selSplitIndex;
 	delete[] vts;
 	delete[] targetCum1;
@@ -930,6 +929,7 @@ int _SplitOnRLoquatNodeCompletelySearchBySort2D(float** data, float* target, int
 	return rv;
 }
 
+// node splitting by measuring the determinant of covariance matrix
 int _SplitOnRLoquatNodeCompletelySearch(float** data, float* target, int variables_num_x, int variables_num_y,
 										const int* innode_samples_index, int innode_num, int Mvariable, int& split_variable_index, float& split_value)
 {
@@ -1010,14 +1010,12 @@ int _SplitOnRLoquatNodeCompletelySearch(float** data, float* target, int variabl
 
 			if (0 == lcount || 0 == rcount)
 				continue;
-				
-			int ld = (lcount == 0) ? 1 : lcount;
-			int rd = (rcount == 0) ? 1 : rcount;
+
 			for (m = 0; m < variables_num_y; m++)
 				for (n = 0; n < variables_num_y; n++)
 				{
-					lCov[m][n] = (lCov[m][n] - lMean[m] * lMean[n] / ld)/ld; // 0513 增加 /ld
-					rCov[m][n] = (rCov[m][n] - rMean[m] * rMean[n] / rd)/rd; // 0513 增加 /rd
+					lCov[m][n] = (lCov[m][n] - lMean[m] * lMean[n] / lcount)/lcount; // 0513 增加 /ld
+					rCov[m][n] = (rCov[m][n] - rMean[m] * rMean[n] / rcount)/rcount; // 0513 增加 /rd
 				}
 
 			detl = variables_num_y == 1 ? lCov[0][0] : CalculateDeterminant(lCov, variables_num_y);
@@ -1080,6 +1078,156 @@ int _SplitOnRLoquatNodeCompletelySearch(float** data, float* target, int variabl
 	return rv;
 }
 
+/*
+ multi-target regression with mse-based splitting criterion
+ accelerated method
+*/
+int SplitOnRNodeCompletelySearchBySortMSE(float** data, float* target, int variables_num_x, int variables_num_y,
+			const int* innode_samples_index, int innode_num, int Mvariable, int& split_variable_index, float& split_value)
+{
+	int i, j, index, rv = 1;
+	int* selSplitIndex = new int[Mvariable];
+
+	float splitv = 0;
+	double gini_like, mingini = 1e38;
+	int var_index;
+
+	// randomly select the variables(attribute) candidate choosing to split on the node
+	vector<int> arrayindx;
+	for (i = 0; i < variables_num_x; i++)
+		arrayindx.push_back(i);
+	for (i = 0; i < Mvariable; i++)
+	{
+		int iid = rand_freebsd() % (variables_num_x - i);
+		selSplitIndex[i] = arrayindx[iid];
+		arrayindx.erase(arrayindx.begin() + iid);
+	}
+
+	int lcount = 0, rcount = 0, lcount_best, rcount_best;
+	double lMeanSqr, rMeanSqr;
+	double lVar, rVar;
+
+	double** targetCum = new double* [variables_num_y];
+	for (int y = 0; y < variables_num_y; y++)
+	{
+		targetCum[y] = new double[innode_num];
+		memset(targetCum[y], 0, sizeof(double) * innode_num);
+	}
+	double* targetSqrCum = new double [innode_num];
+
+
+	var_id* vts = new var_id[innode_num];
+
+	bool bfindSplitV = false;
+	split_variable_index = -1;
+	for (j = 0; j < Mvariable; j++)
+	{
+		var_index = selSplitIndex[j];
+
+		for (int k = 0; k < innode_num; k++)
+		{
+			index = innode_samples_index[k];
+			vts[k].var = data[index][var_index];
+			vts[k].index = index;
+		}
+
+		qsort(vts, innode_num, sizeof(var_id), _cmp_r);
+
+		memset(targetSqrCum, 0, sizeof(double) * innode_num);
+		for (int y = 0; y < variables_num_y; y++)
+		{
+			const double t = target[vts[0].index * variables_num_y + y];
+			targetCum[y][0] = t;
+			targetSqrCum[0] += t * t;
+		}
+		for (int k = 1; k < innode_num; k++)
+		{
+			targetSqrCum[k] = targetSqrCum[k - 1];
+			for (int y = 0; y < variables_num_y; y++)
+			{
+				const double t = target[vts[k].index * variables_num_y + y];
+				targetCum[y][k] = targetCum[y][k - 1] + t;
+				targetSqrCum[k] +=  t * t;
+			}
+		}
+
+		for (int k = 1; k < innode_num; k++)
+		{
+			if (abs(vts[k - 1].var - vts[k].var) < FLT_EPSILON)
+			{
+				continue;
+			}
+
+			splitv = 0.5f * (vts[k - 1].var + vts[k].var);
+			lcount = k;
+			rcount = innode_num - k;
+			
+			lVar = targetSqrCum[k - 1] / lcount;
+			rVar = (targetSqrCum[innode_num - 1] - targetSqrCum[k - 1]) / rcount;
+			lMeanSqr = rMeanSqr = 0.0;
+			double mean_y;
+			for (int y = 0; y < variables_num_y; y++)
+			{
+				mean_y = targetCum[y][k - 1] / lcount;
+				lMeanSqr += mean_y * mean_y;
+				mean_y = (targetCum[y][innode_num - 1] - targetCum[y][k - 1]) / rcount;
+				rMeanSqr += mean_y * mean_y;
+			}
+			gini_like = (lcount * (lVar - lMeanSqr) + rcount * (rVar - rMeanSqr)) / innode_num;
+
+			if (gini_like < mingini)
+			{
+				bfindSplitV = true;
+				mingini = gini_like;
+				split_variable_index = var_index;
+				split_value = splitv;
+				// lcount_best = lcount;
+				// rcount_best = rcount;
+			}
+		}
+
+	}
+
+
+	if (false == bfindSplitV)
+	{
+		if (-1 == ExtremeRandomlySplitOnRLoquatNode(data, variables_num_x, innode_samples_index, innode_num, split_variable_index, split_value))
+		{
+			split_variable_index = -1;
+			split_value = 0;
+			rv = -1;
+
+			/*if (innode_num > 20)
+			{
+				ofstream out("bb.txt");
+				for (int n = 0; n < innode_num; n++)
+				{
+					const int index = innode_samples_index[n];
+					out << index << " " << target[index][0] << "\t\t";
+					for (int k = 0; k < variables_num_x; k++)
+						out << data[index][k] << " ";
+					out << endl;
+
+				}
+				out.close();
+				int y = 1;
+			}*/
+
+		}
+		else
+			rv = 0;
+	}
+
+	delete[] selSplitIndex;
+	delete[] vts;
+	for (int y = 0; y < variables_num_y; y++)
+		delete[] targetCum[y];
+	delete[] targetCum;
+	delete[] targetSqrCum;
+
+	return rv;
+}
+
 
 int SplitOnRLoquatNodeCompletelySearch(float** data, float* target, int variables_num_x, int variables_num_y,
 										const int* innode_samples_index, int innode_num, int Mvariable, int& split_variable_index, float& split_value)
@@ -1094,7 +1242,6 @@ int SplitOnRLoquatNodeCompletelySearch(float** data, float* target, int variable
 	case 2:
 		rv = _SplitOnRLoquatNodeCompletelySearchBySort2D(data, target, variables_num_x, variables_num_y, innode_samples_index, innode_num, Mvariable, split_variable_index, split_value);
 		break;
-
 	default:
 		rv = _SplitOnRLoquatNodeCompletelySearch(data, target, variables_num_x, variables_num_y, innode_samples_index, innode_num, Mvariable, split_variable_index, split_value);
 		break;
@@ -1463,7 +1610,105 @@ int SplitOnRLoquatNode(float** data, float* target, int variables_num_x, int var
 	return rv;
 }
 
-int SplitOnRLoquateNodeExtremeRandomly(float **data, float *target, int variables_num_x, int variables_num_y, 
+int _SplitExtremelyRandom1D(float** data, float* target, int variables_num_x, int variables_num_y,
+					const int* innode_samples_index, int innode_num, int Mvariable, int& split_variable_index, float& split_value)
+{
+	int i, j, m, n, index, rv = 1;
+	int* selSplitIndex = new int[Mvariable];
+	float maxv, minv;
+	float splitv_cand;
+	double gini_like, mingini = 1e38;
+
+	// randomly select the variables(attribute) candidate choosing to split on the node
+	vector<int> arrayindx;
+	for (i = 0; i < variables_num_x; i++)
+		arrayindx.push_back(i);
+	for (i = 0; i < Mvariable; i++)
+	{
+		int iid = rand_freebsd() % (variables_num_x - i);
+		selSplitIndex[i] = arrayindx[iid];
+		arrayindx.erase(arrayindx.begin() + iid);
+	}
+
+	int lcount = 0, rcount = 0;
+	double lMean, rMean;
+	double lVar, rVar;
+
+	bool bfindSplitV = false;
+	for (j = 0; j < Mvariable; j++)  // 对于每个被选中的属性
+	{
+		const int var_index = selSplitIndex[j];
+		maxv = data[innode_samples_index[0]][var_index];
+		minv = maxv;
+		for (i = 1; i < innode_num; i++)
+		{
+			index = innode_samples_index[i];
+			if (data[index][var_index] > maxv)
+				maxv = data[index][var_index];
+			else if (data[index][var_index] < minv)
+				minv = data[index][var_index];
+		}
+		splitv_cand = ((float)rand_freebsd()) / RAND_MAX_RF * (maxv - minv) + minv;
+
+		if (maxv - minv < FLT_EPSILON)
+			continue;
+
+		lcount = 0;
+		rcount = 0;
+		lMean = rMean = 0.0;
+		lVar = rVar = 0.0;
+		for (i = 0; i < innode_num; i++)
+		{
+			index = innode_samples_index[i];
+			const double t = target[index];
+			if (data[index][var_index] <= splitv_cand)
+			{
+				lcount++;
+				lMean += t;
+				lVar += t * t;
+			}
+			else
+			{
+				rcount++;
+				rMean += t;
+				rVar += t * t;
+			}
+
+		}
+
+		if (0 == lcount || 0 == rcount)
+			continue;
+
+		gini_like = (lcount * (lVar / lcount - lMean * lMean / (lcount * lcount)) + rcount * (rVar / rcount - rMean * rMean / (rcount * rcount))) / innode_num;
+		
+		if (gini_like < mingini)
+		{
+			bfindSplitV = true; // 0607
+			mingini = gini_like;
+			split_variable_index = var_index;
+			split_value = splitv_cand;
+		}
+
+	}
+
+	if (false == bfindSplitV) //0608
+	{
+		if (-1 == ExtremeRandomlySplitOnRLoquatNode(data, variables_num_x, innode_samples_index, innode_num, split_variable_index, split_value))
+		{
+			split_variable_index = -1;
+			split_value = 0;
+			rv = -1;
+		}
+		else
+			rv = 0;
+	}
+
+	delete[] selSplitIndex;
+
+	return rv;
+}
+
+int _SplitExtremelyRandom(float **data, float *target, int variables_num_x, int variables_num_y, 
 									  const int *innode_samples_index, int innode_num ,int Mvariable, int &split_variable_index, float &split_value)
 {
 	int i, j, m, n, index, rv = 1;
@@ -1565,8 +1810,9 @@ int SplitOnRLoquateNodeExtremeRandomly(float **data, float *target, int variable
 
 		// COV = ∑XX_T - n*X_hat*X_hat_T
 		// now lCov,rCov = ∑XX_T, lMean,rMean = n*X_hat;
-// 		lcount = (lcount==0) ? 1 : lcount;
-// 		rcount = (rcount==0) ? 1 : rcount;
+		if (0 == lcount || 0 == rcount)
+			continue;
+
 		int ld = (lcount==0) ? 1 : lcount;
 		int rd = (rcount==0) ? 1 : rcount;
 		for( m=0; m<variables_num_y; m++ )
@@ -1621,6 +1867,23 @@ int SplitOnRLoquateNodeExtremeRandomly(float **data, float *target, int variable
 	return rv;
 }
 
+
+int SplitExtremelyRandom(float** data, float* target, int variables_num_x, int variables_num_y,
+	const int* innode_samples_index, int innode_num, int Mvariable, int& split_variable_index, float& split_value)
+{
+	int rv;
+	switch (variables_num_y)
+	{
+	case 1:
+		rv = _SplitExtremelyRandom1D(data, target, variables_num_x, variables_num_y, innode_samples_index, innode_num, Mvariable, split_variable_index, split_value);
+		break;
+	default:
+		rv = _SplitExtremelyRandom(data, target, variables_num_x, variables_num_y, innode_samples_index, innode_num, Mvariable, split_variable_index, split_value);
+		break;
+	}
+
+	return rv;
+}
 
 void CalculateLeafNodeInformation(float **data, float *target, const int *sample_index, int arrivedNum, int variable_num_x, int variable_num_y, PredictionModel predictionModel, LeafNodeInfo *&pLeafNodeInfo)
 {
@@ -1799,6 +2062,7 @@ struct _GrowNodeInput
 	int maxDepth;
 	PredictionModel predictionModel;
 	int randomness;
+	SplitCriterion splitCriterion;
 };
 typedef struct _GrowNodeInput GrowNodeInput;
 
@@ -1913,26 +2177,34 @@ struct LoquatRTreeNode* GrowLoquatRTreeNodeRecursively(float** data, float* targ
 	}
 	else
 	{
-		bool bSplit = true;
-		switch (pInputParam->randomness)
+
+		int (*split)(float** data, float* target, int variables_num_x, int variables_num_y,
+										const int* innode_samples_index, int innode_num, int Mvariable, int& split_variable_index, float& split_value);
+
+		if (total_variables_num_y > 1 &&  pInputParam->splitCriterion == SplitCriterion::mse )
 		{
-		case TREE_RANDOMNESS_WEAK:
-			
-			SplitOnRLoquatNodeCompletelySearch(data, target, total_variables_num_x, total_variables_num_y, treeNode->samples_index, treeNode->arrival_samples_num,
-				pInputParam->mvariables, treeNode->split_variable_index, treeNode->split_value);
-			break;
-		case TREE_RANDOMNESS_MODERATE:
-			SplitOnRLoquatNode(data, target, total_variables_num_x, total_variables_num_y, treeNode->samples_index, treeNode->arrival_samples_num,
-				pInputParam->mvariables, treeNode->split_variable_index, treeNode->split_value);
-			break;
-		case TREE_RANDOMNESS_STRONG:
-			SplitOnRLoquateNodeExtremeRandomly(data, target, total_variables_num_x, total_variables_num_y, treeNode->samples_index, treeNode->arrival_samples_num,
-				pInputParam->mvariables, treeNode->split_variable_index, treeNode->split_value);
-			break;
-		default:
-			SplitOnRLoquatNode(data, target, total_variables_num_x, total_variables_num_y, treeNode->samples_index, treeNode->arrival_samples_num,
-				pInputParam->mvariables, treeNode->split_variable_index, treeNode->split_value);
+			// multi-target regression with mse-based splitting criterion
+			split=SplitOnRNodeCompletelySearchBySortMSE;
 		}
+		else
+		{
+			// if targets are multivariate, covariance-based splitting criterion is used
+			switch (pInputParam->randomness)
+			{
+			case TREE_RANDOMNESS_MODERATE:
+				split=SplitOnRLoquatNode;
+				break;
+			case TREE_RANDOMNESS_STRONG:
+				split=SplitExtremelyRandom;
+				break;
+			case TREE_RANDOMNESS_WEAK:
+			default:
+				split = SplitOnRLoquatNodeCompletelySearch;
+			}
+		}
+		
+		split(data, target, total_variables_num_x, total_variables_num_y, treeNode->samples_index, treeNode->arrival_samples_num,
+						pInputParam->mvariables, treeNode->split_variable_index, treeNode->split_value);
 
 		float splitv = treeNode->split_value;
 		int split_index = treeNode->split_variable_index;
@@ -1972,7 +2244,7 @@ struct LoquatRTreeNode* GrowLoquatRTreeNodeRecursively(float** data, float* targ
 			treeNode->pLeafNodeInfo->dimension = total_variables_num_y;
 
 			if (NULL != subnode_samples_queue)
-				delete[] subnode_samples_queue;//!!!!!!!!!!!!!!!!!!!
+				delete[] subnode_samples_queue;
 			return treeNode;
 		}
 
@@ -2041,10 +2313,6 @@ int GrowRandomizedRLoquatTreeRecursively(float** data, float* target, const Rand
 	loquatTree->inbag_samples_index = new int[selnum]; // 有重复的！
 	assert(NULL != loquatTree->inbag_samples_index);
 
-	// int  leafMinSamples = (int)(loquatTree->inbag_samples_num * STOP_CRITERION_NUM_RATIO_R + 0.5);
-	// if (leafMinSamples < 5)
-	// 	leafMinSamples = 5;
-
 	// (1) Resampling training samples (bootstrap training samples)
 	bool* inbagmask = new bool[total_samples_num];
 	assert(NULL != inbagmask);
@@ -2090,7 +2358,8 @@ int GrowRandomizedRLoquatTreeRecursively(float** data, float* target, const Rand
 							  -1/*parent depth of the root node*/,
 							  RFinfo.maxdepth,
 							  RFinfo.predictionModel,
-							  RFinfo.randomness};
+							  RFinfo.randomness,
+							  RFinfo.splitCrierion};
 	loquatTree->rootNode = GrowLoquatRTreeNodeRecursively(data, target,
 												loquatTree->inbag_samples_index,
 												loquatTree->inbag_samples_num,
@@ -2237,7 +2506,7 @@ int TrainRandomForestRegressor(float **data, float *target, RandomRForests_info 
 			loquatForest->RFinfo.ntrees = i + 1;
 			float* mse = NULL;
 			MSEOnOutOfBagSamples(data, tgt, loquatForest, mse);
-			cout << "Tree: " << i + 1 << "\tOOB mse: ";
+			cout << "Tree: " << i + 1 << " OOB mse: \t";
 			for (int m = 0; m < loquatForest->RFinfo.datainfo.variables_num_y; m++)
 				cout << mse[m] << " ";
 			cout << endl;

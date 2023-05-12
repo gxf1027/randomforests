@@ -23,6 +23,12 @@ typedef enum PredictionModel
 	linear
 }PredictionModel;
 
+typedef enum SplitCriterion
+{
+	mse = 1,
+	covar
+}SplitCriterion;
+
 typedef struct
 {
 	Dataset_info_R datainfo;
@@ -32,6 +38,7 @@ typedef struct
 	int minsamplessplit;
 	int randomness;
 	PredictionModel predictionModel;
+	SplitCriterion splitCrierion;
 }RandomRForests_info;
 
 typedef struct _LeafNodeInfo

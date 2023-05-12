@@ -184,6 +184,7 @@ int ReadRegressionForestConfigFile2(const char *configXMLPath, RandomRForests_in
 	}
 
 	RF_info.predictionModel = PredictionModel::constant;
+	RF_info.splitCrierion = SplitCriterion::mse;
 
 	return 1;
 }
