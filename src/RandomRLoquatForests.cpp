@@ -8,6 +8,7 @@
 #include <cstring>
 #include <cstdlib>
 #include <float.h>
+#include <map>
 using namespace std;
 
 #include "RandomRLoquatForests.h"
@@ -3093,5 +3094,76 @@ int ReleaseRegressionForest(LoquatRForest **loquatForest)
 	delete (*loquatForest);
 	(*loquatForest) = NULL;
 	
+	return 1;
+}
+
+
+int RegressionForestGAPProximity(LoquatRForest* forest, float** data, const int index_i, float*& proximities)
+{
+	if (NULL != proximities)
+		delete[] proximities;
+
+	
+	proximities = new float[forest->RFinfo.datainfo.samples_num];
+	memset(proximities, 0, sizeof(float) * forest->RFinfo.datainfo.samples_num);
+
+	const int ntrees = forest->RFinfo.ntrees;
+	int oobtree_num = 0;
+	for (int t = 0; t < ntrees; t++)
+	{
+		//where the i-th sample is oob
+		const struct LoquatRTreeStruct* tree = forest->loquatTrees[t];
+		bool i_oob = false;
+		for (int n = 0; n < tree->outofbag_samples_num; n++)
+		{
+			if (index_i == tree->outofbag_samples_index[n]) 
+			{
+				i_oob = true;
+				break;
+			}
+		}
+
+
+		if (false == i_oob)
+			continue;
+
+		oobtree_num++;
+
+		map<int, int> index_multicity;
+		const struct LoquatRTreeNode* leaf_i = GetArrivedLeafNode(forest, t, data[index_i]);
+		
+		// because forest did not store sample index arrrived at the leaf node, each in bag sample has to be tested
+		for (int n = 0; n < tree->inbag_samples_num; n++)
+		{
+			const int j = tree->inbag_samples_index[n];
+			const struct LoquatRTreeNode* leaf_j = GetArrivedLeafNode(forest, t, data[j]);
+			if (leaf_i == leaf_j)
+			{
+				if (index_multicity.find(j) == index_multicity.end())
+					index_multicity.emplace(j, 1);
+				else
+					index_multicity[j]++;
+			}
+		}
+
+		int M = 0;
+		for (map<int, int>::iterator it = index_multicity.begin(); it != index_multicity.end(); it++)
+		{
+			M += it->second;
+		}
+
+		if (0 == M)
+			continue;
+
+		for (map<int, int>::iterator it = index_multicity.begin(); it != index_multicity.end(); it++)
+			proximities[it->first] += it->second*1.0f/M;
+	}
+
+	if (0 == oobtree_num)
+		return -1;
+
+	for (int j = 0; j < forest->RFinfo.datainfo.samples_num; j++)
+		proximities[j] = proximities[j] / oobtree_num;
+
 	return 1;
 }

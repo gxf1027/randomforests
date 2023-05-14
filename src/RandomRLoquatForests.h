@@ -133,5 +133,15 @@ int MSEOnTestSamples(float **data_test, float *target, int nTestSamplesNum, Loqu
 
 int MSEOnOutOfBagSamples(float **data, float *target_test, LoquatRForest *loquatForest, float *&mean_squared_error);
 
+/*
+Description:	calculate proximities between the i-th sample and every other sample with algorithm proposed by
+				'Jake S.Rhodes, Adele Cutler, Kevin R. Moon. Geometry- and Accuracy-Preserving Random Forest Proximities. TPAMI,2023.'
+[in]
+[out]			proximities
+return:			1  -- success
+				-1 -- i-th sample is not a out-of-bag sample for every tree in forest. Possible when the number of trees is small.
+
+*/
+int RegressionForestGAPProximity(LoquatRForest* forest, float** data, const int index_i, float*& proximities /*OUT*/);
 
 #endif
