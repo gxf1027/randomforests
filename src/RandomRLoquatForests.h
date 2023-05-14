@@ -98,7 +98,7 @@ int CheckRegressionForestParameters(RandomRForests_info &RF_info);
 Description:	Train a Random Regression Forests model
 
 [in]	1.data:		two dimension array [N][M], containing the total training data with their variable
-		2.target:	two dimension array [N][K], the target(output) value of the training data, multi-dimensional output is supported
+		2.target:	one dimension array [N*K], the target(output) value of the training data, multi-dimensional output is supported
  		3.RFinfo:	the struct contains necessary information of Random Regression Forests, namely the number of trees, and the number 
 					of variable split at each node.
 		4.bTargetNormalize: whether the target is normalized
