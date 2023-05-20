@@ -137,7 +137,7 @@ int MSEOnOutOfBagSamples(float **data, float *target_test, LoquatRForest *loquat
 Description:	calculate proximities between the i-th sample and every other sample with algorithm proposed by
 				'Jake S.Rhodes, Adele Cutler, Kevin R. Moon. Geometry- and Accuracy-Preserving Random Forest Proximities. TPAMI,2023.'
 [in]
-[out]			proximities
+[out]			proximities:  a pointer to the 1D array, with the dimension samples_num*1.
 return:			1  -- success
 				-1 -- i-th sample is not a out-of-bag sample for every tree in forest. Possible when the number of trees is small.
 

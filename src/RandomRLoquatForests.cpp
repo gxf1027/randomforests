@@ -3132,17 +3132,30 @@ int RegressionForestGAPProximity(LoquatRForest* forest, float** data, const int 
 		map<int, int> index_multicity;
 		const struct LoquatRTreeNode* leaf_i = GetArrivedLeafNode(forest, t, data[index_i]);
 		
-		// because forest did not store sample index arrrived at the leaf node, each in bag sample has to be tested
-		for (int n = 0; n < tree->inbag_samples_num; n++)
+		if (leaf_i->samples_index != NULL)
 		{
-			const int j = tree->inbag_samples_index[n];
-			const struct LoquatRTreeNode* leaf_j = GetArrivedLeafNode(forest, t, data[j]);
-			if (leaf_i == leaf_j)
+			for (int n=0; n<leaf_i->arrival_samples_num; n++)
 			{
-				if (index_multicity.find(j) == index_multicity.end())
-					index_multicity.emplace(j, 1);
+				if (index_multicity.find(leaf_i->samples_index[n]) == index_multicity.end())
+					index_multicity.emplace(leaf_i->samples_index[n], 1);
 				else
-					index_multicity[j]++;
+					index_multicity[leaf_i->samples_index[n]]++;
+			}
+		}
+		else
+		{
+			// because forest did not store sample index arrrived at the leaf node, each in bag sample has to be tested
+			for (int n = 0; n < tree->inbag_samples_num; n++)
+			{
+				const int j = tree->inbag_samples_index[n];
+				const struct LoquatRTreeNode* leaf_j = GetArrivedLeafNode(forest, t, data[j]);
+				if (leaf_i == leaf_j)
+				{
+					if (index_multicity.find(j) == index_multicity.end())
+						index_multicity.emplace(j, 1);
+					else
+						index_multicity[j]++;
+				}
 			}
 		}
 

@@ -78,7 +78,7 @@ struct LoquatCTreeStruct
 	struct LoquatCTreeNode *rootNode;
 };
 
-typedef struct LoquatDForestSturct
+typedef struct LoquatCForestSturct
 {
 	struct LoquatCTreeStruct **loquatTrees;
 	RandomCForests_info RFinfo;
@@ -230,5 +230,34 @@ Description:  Compute generalization performance of trained RF model with test d
 */
 int ErrorOnTestSamples(float **data_test, const int *label_test, const int nTestSamplesNum, const LoquatCForest *loquatForest, float &error_rate, int isHardDecision=1);
 
+
+/*
+Description:	calculate proximities between the i-th sample and every other sample with algorithm proposed by
+				'Jake S.Rhodes, Adele Cutler, Kevin R. Moon. Geometry- and Accuracy-Preserving Random Forest Proximities. TPAMI,2023.'
+[in]
+[out]			proximities:  a pointer to the 1D array, with the dimension samples_num*1.
+return:			1  -- success
+				-1 -- i-th sample is not a out-of-bag sample for every tree in forest. Possible when the number of trees is small.
+
+*/
+int ClassificationForestGAPProximity(LoquatCForest* forest, float** data, const int index_i, float*& proximities);
+
+/*
+Description:    Compute raw outlier measurement using RF-GAP.
+Method:			"Outliers are generally defined as cases that are removed from the main body of the data. Translate this as:
+				 outliers are cases whose proximities to all other cases in the data are generally small.
+				 A useful revision is to define outliers relative to their class.
+				 Thus, an outlier in class j is a case whose proximities to all other class j cases are small."
+				 Leo Breiman and Adele Cutler:(https://www.stat.berkeley.edu/~breiman/RandomForests/cc_home.htm#outliers)
+				 raw_score = (samples_num/P_hat(n)-median)/dev, where P_hat(n) = ¡ÆProx^2(n,k),subject to the k that cl(k)=cl(n) and n¡Ùk.
+
+[in]:            1.loquatForest
+				 2.data
+				 3.label
+				 4.raw_score: MUST be assigned with 'NULL'
+
+[out]:           1.raw_score: a pointer to the 1D array, with the dimension samples_num*1.
+*/
+int RawOutlierMeasure(LoquatCForest* loquatForest, float** data, int* label, float*& raw_score);
 
 #endif
