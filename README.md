@@ -199,18 +199,18 @@ int main()
 ## <font size=4>分析</font>
 **参数影响**  
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;通常RF在默认参数设定下也能取得较理想的效果，通过对参数（见2.2节）调优可以获得更佳的分类/回归效果。一般可以对TreesNum和SplitVariables进行调优。通常认为增加TreesNum会使泛化误差下降（当然也有特例）。如下图，展示了随着树增加，oob error/oob mse呈现下降的趋势。
-![在这里插入图片描述](https://img-blog.csdnimg.cn/cc4277cfecee4e45a0c50cc8c0e65119.png#pic_center)
+![在这里插入图片描述](https://raw.githubusercontent.com/gxf1027/randomforests/main/images/oob-error-oob-mse.png)
 
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;SplitVariables是控制RF随机性的主要参数，当它增加时树之间的关联性也随之增加，而关联性增加会导致分类/回归误差提高[<sup>[2]</sup>](#refer-anchor-2)。从可调性(Tunability)角度考虑，调节SplitVariables对性能提升的贡献是最大的。而SplitVariables选择默认设定时，通常也能取得不错的效果。下图为pendigits数据集上，不同SplitVariables（样本为16维，TreesNum=500）参数下的分类oob error。
-![在这里插入图片描述](https://img-blog.csdnimg.cn/20210622160810643.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L2d4ZjEwMjc=,size_16,color_FFFFFF,t_70#pic_center)
+![在这里插入图片描述](https://raw.githubusercontent.com/gxf1027/randomforests/main/images/splitVariables.png)
 
 **特征重要性**  
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;特征重要性(variable importance)的评估是RF“自带”的一个特性。采用oob数据的特征随机交换的方法来估计特征重要性。对于数据集"waveform"，结果如下图所示，可见后一半特征的重要性几乎为0，这是因为waveform的后19维特征是随机噪声，因此variable importance计算结果符合上述情况。
-![在这里插入图片描述](https://img-blog.csdnimg.cn/2021062316005288.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L2d4ZjEwMjc=,size_16,color_FFFFFF,t_70#pic_center)
+![在这里插入图片描述](https://raw.githubusercontent.com/gxf1027/randomforests/main/images/vim-waveform-style-seaborn0623.png)
 
 **多目标回归**
 
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;这里多目标指的是回归目标是多维的，一般称为multivariate regression或者multi-target regression。可以将多维目标分解为多个单独的回归问题，即可以对每一维输出输出单独训练一个模型，那么输出有 $N$ 维就要训练 $N$ 个随机森林模型，预测时也要获取多个随机森林的输出。使用随机森林也可以**直接**对多维输出（多目标）进行训练，这里也使用这种方法对多维输出进行预测。
 
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;使用[Tetuan-City-power-consumption](https://archive.ics.uci.edu/ml/datasets/Power+consumption+of+Tetouan+city)数据集来进行试验，原始数据集是通过时间、温度、湿度、风速等6个变量来预测城市3个配电网的能源消耗，即输入6维，输出3维。由于“时间”变量难以使用，所以分解为[*minute,hour,day,month,weekday,weekofyear*] 6个变量，加上原始的5个气象变量，形成新的11维输入。RF参数为[200, 3<sup>#</sup>, 60, 2]（参数含义见4.2节）。由于输出具有明确物理含义，且都是正数，衡量回归准备度的指标不再使用oob-mse，而是使用oob样本的平均偏离度 $\frac {|t_{predict}-t|}{t}$ 。下图反映了当RF中随机树数量增加时，三个输出维度的平均偏离度变化。可以看到随着随机树增加，偏离度呈下降趋势，基本都在200颗树时达到<1.8%的回归准确度。
-![在这里插入图片描述](https://img-blog.csdnimg.cn/d61cda4161764e82abea54a7d0caadfa.png#pic_center)
+![在这里插入图片描述](https://raw.githubusercontent.com/gxf1027/randomforests/main/images/Tetuan-City-power-consumption-oob-dev.png)
