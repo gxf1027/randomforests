@@ -144,12 +144,15 @@ int main()
 |Sensorless_drive_diagnosis|classification|[UCI](http://archive.ics.uci.edu/ml/datasets/Dataset+for+Sensorless+Drive+Diagnosis)|58509|48|11|
 |Smartphone Human Activity Recognition|classification|[UCI](http://archive.ics.uci.edu/ml/datasets/Smartphone+Dataset+for+Human+Activity+Recognition+(HAR)+in+Ambient+Assisted+Living+(AAL))|4242|561|6|
 |waveform|classification|[UCI](http://archive.ics.uci.edu/ml/datasets/Waveform+Database+Generator+%28Version+2%29)|5000|40|3|
-|satimage|classification|[UCI](http://archive.ics.uci.edu/ml/datasets/Statlog+%28Landsat+Satellite%29)|6435|36|6
+|satimage|classification|[UCI](http://archive.ics.uci.edu/ml/datasets/Statlog+%28Landsat+Satellite%29)|6435|36|6|
+|Car Evaluation|classification|[UCI](https://archive.ics.uci.edu/ml/datasets/Car+Evaluation)|1728|6|4|
+|sonar|classification|[UCI](https://archive.ics.uci.edu/ml/datasets/Connectionist+Bench+(Sonar%2C+Mines+vs.+Rocks))|208|60|2|
 |abalone|regression|[UCI](http://archive.ics.uci.edu/ml/datasets/Abalone)|4177|8|——|
 |airfoil_self_noise|regression|[UCI](http://archive.ics.uci.edu/ml/datasets/Airfoil+Self-Noise)|1503|5|——|
 |Bike-Sharing<sup>1</sup>|regression|[UCI](http://archive.ics.uci.edu/ml/datasets/Bike+Sharing+Dataset)|17379|14|——|
 |Combined_Cycle_Power_Plant|regression|[UCI](http://archive.ics.uci.edu/ml/datasets/Combined+Cycle+Power+Plant)|9568|4|——|
 |elevators|regression|[openml](https://www.openml.org/t/2307)|16599|18|——|
+|QSAR fish toxicity|regression|[UCI](https://archive.ics.uci.edu/ml/datasets/QSAR+fish+toxicity)|908|6|——|
 |Housing|regression|[kaggle](https://www.kaggle.com/apratim87/housingdata)|506|13|——|
 |Parkinsons_Telemonitoring<sup>2</sup>|regression|[UCI](http://archive.ics.uci.edu/ml/datasets/Parkinsons+Telemonitoring)|5875|19|——|
 |Superconductivty|regression|[UCI](http://archive.ics.uci.edu/ml/datasets/Superconductivty+Data)|21263|81|——|
@@ -169,31 +172,34 @@ int main()
 |chess-krvk|[500, 2<sup>*</sup>, 40, 5]|16.46636±0.07493|C|
 |Gisette|[200, 70<sup>*</sup>, 40, 5]|2.932105±0.10090(oob)<br>3.010±0.13333(test set)|C|
 | ionosphere | [200, 5<sup>*</sup>, 40, 5]| 6.325±0.213|C|
-|mnist|[200, 27<sup>*</sup>, 40, 5]|3.307166±0.02863|C|
+|mnist|[200, 27<sup>*</sup>, 40, 5]|3.307166±0.02863(oob)<br>3.066±0.0665(test set)|C|
 |MAGIC_Gamma_Telescope|[200, 3<sup>*</sup>, 40, 5]|11.8559±0.04347|C|
 |pendigits| [200, 4<sup>*</sup>, 40, 5] | 0.880822±0.03428(oob)<br>3.670668±0.049843(test set)|C|
 |spambase|[200, 7<sup>*</sup>, 40, 5]|4.514335±0.10331|C|
 |satimage|[500, 6<sup>*</sup>, 40, 5]|8.102018±0.057777|C|
-|Sensorless_drive_diagnosis|[200, 6<sup>*</sup>, 40, 5]|0.1468151±0.005843|C|
+|Sensorless_drive_diagnosis|[200, 6<sup>*</sup>, 40, 5]|0.169049±0.009346|C|
 |Smartphone Human Activity Recognition|[200, 23<sup>*</sup>, 40, 5]|7.39415±0.1159|C|
 |waveform|[500,  6<sup>*</sup>, 40,  5]|14.70493±0.19792|C|
+|Car Evaluation|[200,2<sup>*</sup>,40,5]|1.9456±0.11923|C|
+|sonar|[200,7<sup>*</sup>,40,2]|14.961±0.8646|C|
 |abalone|[500, 3<sup>#</sup>, 40, 5]|4.58272±0.008826|R|
 |airfoil_self_noise|[200, 2/5, 40, 5]|3.83345±0.034283|R|
 |Bike-Sharing|[500, 5<sup>#</sup>, 40, 5]|29.7227±0.84333|R|
 |Combined_Cycle_Power_Plant|[200, 2/4, 40, 5]|9.94693±0.031153|R|
 |elevators|[200, 10/18, 40, 5]|7.1859E-06±3.15264E-08|R|
+|QSAR fish toxicity|[200, 2<sup>#</sup>, 40, 2]|0.7669898±0.003282|R|
 |Housing|[200, 4<sup>#</sup>, 40, 5]|10.077±0.1923|R|
 |Parkinsons_Telemonitoring<sup>3</sup>|[200,19,40,5]|[1.437, 2.523]±[0.01706, 0.03033]|R|
 |Superconductivty|[200, 27<sup>#</sup>, 40, 5]|81.4527±0.2781|R|
 |YearPredictionMSD|[100, 30<sup>#</sup>, 40, 50]|83.1219±0.05236|R|
 
-*: 表示使用分类森林默认的$\sqrt{variable\_num}$作为SplitVariables参数;  
-#:表示使用回归森林默认的​​$\frac {variable\_num\_x}3$作为SplitVariables参数
+*: 表示使用分类森林默认的 $\sqrt{variable\_num}$ 作为SplitVariables参数;  
+#:表示使用回归森林默认的 $\frac {variable\_num\_x}3$ 作为SplitVariables参数
 
 ## <font size=4>分析</font>
 **参数影响**  
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;通常RF在默认参数设定下也能取得较理想的效果，通过对参数（见2.2节）调优可以获得更佳的分类/回归效果。一般可以对TreesNum和SplitVariables进行调优。通常认为增加TreesNum会使泛化误差下降（当然也有特例）。如下图，展示了随着树增加，oob error呈现下降的趋势。
-![在这里插入图片描述](https://img-blog.csdnimg.cn/20210621100844939.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L2d4ZjEwMjc=,size_16,color_FFFFFF,t_70#pic_center)
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;通常RF在默认参数设定下也能取得较理想的效果，通过对参数（见2.2节）调优可以获得更佳的分类/回归效果。一般可以对TreesNum和SplitVariables进行调优。通常认为增加TreesNum会使泛化误差下降（当然也有特例）。如下图，展示了随着树增加，oob error/oob mse呈现下降的趋势。
+![在这里插入图片描述](https://img-blog.csdnimg.cn/cc4277cfecee4e45a0c50cc8c0e65119.png#pic_center)
 
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;SplitVariables是控制RF随机性的主要参数，当它增加时树之间的关联性也随之增加，而关联性增加会导致分类/回归误差提高[<sup>[2]</sup>](#refer-anchor-2)。从可调性(Tunability)角度考虑，调节SplitVariables对性能提升的贡献是最大的。而SplitVariables选择默认设定时，通常也能取得不错的效果。下图为pendigits数据集上，不同SplitVariables（样本为16维，TreesNum=500）参数下的分类oob error。
 ![在这里插入图片描述](https://img-blog.csdnimg.cn/20210622160810643.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L2d4ZjEwMjc=,size_16,color_FFFFFF,t_70#pic_center)
@@ -201,3 +207,10 @@ int main()
 **特征重要性**  
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;特征重要性(variable importance)的评估是RF“自带”的一个特性。采用oob数据的特征随机交换的方法来估计特征重要性。对于数据集"waveform"，结果如下图所示，可见后一半特征的重要性几乎为0，这是因为waveform的后19维特征是随机噪声，因此variable importance计算结果符合上述情况。
 ![在这里插入图片描述](https://img-blog.csdnimg.cn/2021062316005288.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L2d4ZjEwMjc=,size_16,color_FFFFFF,t_70#pic_center)
+
+**多目标回归**
+
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;这里多目标指的是回归目标是多维的，一般称为multivariate regression或者multi-target regression。可以将多维目标分解为多个单独的回归问题，即可以对每一维输出输出单独训练一个模型，那么输出有 $N$ 维就要训练 $N$ 个随机森林模型，预测时也要获取多个随机森林的输出。使用随机森林也可以**直接**对多维输出（多目标）进行训练，这里也使用这种方法对多维输出进行预测。
+
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;使用[Tetuan-City-power-consumption](https://archive.ics.uci.edu/ml/datasets/Power+consumption+of+Tetouan+city)数据集来进行试验，原始数据集是通过时间、温度、湿度、风速等6个变量来预测城市3个配电网的能源消耗，即输入6维，输出3维。由于“时间”变量难以使用，所以分解为[*minute,hour,day,month,weekday,weekofyear*] 6个变量，加上原始的5个气象变量，形成新的11维输入。RF参数为[200, 3<sup>#</sup>, 60, 2]（参数含义见4.2节）。由于输出具有明确物理含义，且都是正数，衡量回归准备度的指标不再使用oob-mse，而是使用oob样本的平均偏离度 $\frac {|t_{predict}-t|}{t}$ 。下图反映了当RF中随机树数量增加时，三个输出维度的平均偏离度变化。可以看到随着随机树增加，偏离度呈下降趋势，基本都在200颗树时达到<1.8%的回归准确度。
+![在这里插入图片描述](https://img-blog.csdnimg.cn/d61cda4161764e82abea54a7d0caadfa.png#pic_center)
