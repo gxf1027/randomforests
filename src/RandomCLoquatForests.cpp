@@ -2545,6 +2545,7 @@ int RawVariableImportanceScore2(float** data, int* label, LoquatCForest* loquatF
 		memcpy(varImportance, z_score, sizeof(float) * variables_num);
 	}
 
+	int rv = 1;
 	if (filename != NULL)
 	{
 		fstream vieFile;
@@ -2556,12 +2557,16 @@ int RawVariableImportanceScore2(float** data, int* label, LoquatCForest* loquatF
 			cout << "Warning: file is not created." << endl;
 			cout << "----------------------------------------------------------------------" << endl;
 			cout << endl;
-			return 1;
+			rv = 0;
 		}
-		vieFile << "variable index" << "\t" << "raw score" << "\t\t" << "z-score" << endl;
-		for (i = 0; i < variables_num; i++)
-			vieFile << i << "\t\t" << raw_score[i] << "\t\t" << z_score[i] << endl;
-		vieFile.close();
+		else
+		{
+			vieFile << "variable index" << "\t" << "raw score" << "\t\t" << "z-score" << endl;
+			for (i = 0; i < variables_num; i++)
+				vieFile << i << "\t\t" << raw_score[i] << "\t\t" << z_score[i] << endl;
+			vieFile.close();
+		}
+		
 	}
 
 	delete[] tmp_data;
@@ -2577,7 +2582,7 @@ int RawVariableImportanceScore2(float** data, int* label, LoquatCForest* loquatF
 	delete[] raw_score;
 	delete[] z_score;
 
-	return 1;
+	return rv;
 }
 
 int RawOutlierMeasure(LoquatCForest* loquatForest, float** data, int* label, float*& raw_score)
