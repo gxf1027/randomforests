@@ -169,29 +169,6 @@ return:		1: Successfully
 */
 int EvaluateOneSample(float *data, LoquatCForest *loquatForest, int &label_index, const int isHardDecision=1);
 
-/*
-Description:     Compute raw/z-score variables Importance.
-Method:         "In every tree grown in the forest, put down the oob cases and count the number of votes cast for the correct class. 
-                 Now randomly permute the values of variable m in the oob cases and put these cases down the tree. 
-				 Subtract the number of votes for the correct class in the variable-m-permuted oob data from the number of votes for the correct class in the untouched oob data.
-				 The average of this number over all trees in the forest is the raw importance score for variable m. 
-
-				 If the values of this score from tree to tree are independent, then the standard error can be computed by a standard computation. 
-				 The correlations of these scores between trees have been computed for a number of data sets and proved to be quite low, 
-				 therefore we compute standard errors in the classical way, divide the raw score by its standard error to get a z-score, 
-				 ands assign a significance level to the z-score assuming normality."
-                 Leo Breiman and Adele Cutler:(https://www.stat.berkeley.edu/~breiman/RandomForests/cc_home.htm#varimp)
-
-[in]:			1.data:			two dimension array [N][M], containing the total training data with their variable
-				2.label:		the labels of training data
-				3.loquatForest:	the trained Random Forests model, which also includes data information and model information
-				4.nType:		0: raw variable importance score
-								1: z-score
-[out]:			1.varImportance:	normalized raw/z-score importance score.
-*/
-int RawVariableImportanceScore(float **data, int *label, LoquatCForest *loquatForest, int nType, float *varImportance, bool bNormalize, char *filename=0);
-int RawVariableImportanceScore2(float** data, int* label, LoquatCForest* loquatForest, int nType, float* varImportance, bool bNormalize, char* filename = 0);
-
 
 /*
 Description: Using in-bag samples to estimate training error.
@@ -231,6 +208,30 @@ Description:  Compute generalization performance of trained RF model with test d
 int ErrorOnTestSamples(float **data_test, const int *label_test, const int nTestSamplesNum, const LoquatCForest *loquatForest, float &error_rate, int isHardDecision=1);
 
 
+/*-----------------------------------------------VARIABLE IMPORTANCE and OTHERS-----------------------------------------------*/
+
+/*
+Description:     Compute raw/z-score variables Importance.
+Method:         "In every tree grown in the forest, put down the oob cases and count the number of votes cast for the correct class.
+				 Now randomly permute the values of variable m in the oob cases and put these cases down the tree.
+				 Subtract the number of votes for the correct class in the variable-m-permuted oob data from the number of votes for the correct class in the untouched oob data.
+				 The average of this number over all trees in the forest is the raw importance score for variable m.
+
+				 If the values of this score from tree to tree are independent, then the standard error can be computed by a standard computation.
+				 The correlations of these scores between trees have been computed for a number of data sets and proved to be quite low,
+				 therefore we compute standard errors in the classical way, divide the raw score by its standard error to get a z-score,
+				 ands assign a significance level to the z-score assuming normality."
+				 Leo Breiman and Adele Cutler:(https://www.stat.berkeley.edu/~breiman/RandomForests/cc_home.htm#varimp)
+
+[in]:			1.data:			two dimension array [N][M], containing the total training data with their variable
+				2.label:		the labels of training data
+				3.loquatForest:	the trained Random Forests model, which also includes data information and model information
+				4.nType:		0: raw variable importance score
+								1: z-score
+[out]:			1.varImportance:	normalized raw/z-score importance score.
+*/
+int RawVariableImportanceScore2(float** data, int* label, LoquatCForest* loquatForest, int nType, float* varImportance, bool bNormalize, char* filename = 0);
+
 /*
 Description:	calculate proximities between the i-th sample and every other sample with algorithm proposed by
 				'Jake S.Rhodes, Adele Cutler, Kevin R. Moon. Geometry- and Accuracy-Preserving Random Forest Proximities. TPAMI,2023.'
@@ -259,5 +260,20 @@ Method:			"Outliers are generally defined as cases that are removed from the mai
 [out]:           1.raw_score: a pointer to the 1D array, with the dimension samples_num*1.
 */
 int RawOutlierMeasure(LoquatCForest* loquatForest, float** data, int* label, float*& raw_score);
+
+
+/*
+Description:       Compute average margin on oob samples of each tree, using Breiman's method,
+				   mg(X,y) = avkI(hk(X)=y) - max avkI(hk(X)=j), j¡Ùy, y is the true label
+[in]:  1. data:            train dataset
+	   2. label:           true labels
+	   3. loquatForest:    trained Random Forests Model
+[out]  1. margin:          margin computed
+
+return:
+		1: computing margin successfully
+		0: Errors happen at getting the pointer of leaf node;
+*/
+int ComputeVotingOOBMargin(float** data, int* label, LoquatCForest* loquatForest, float& margin);
 
 #endif

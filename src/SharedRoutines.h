@@ -1,6 +1,8 @@
 #ifndef _SHARED_ROUTINES_H_
 #define _SHARED_ROUTINES_H_
 
+#define RF_MAX(a,b)  ((a)>(b) ? (a) : (b))
+
 extern unsigned int g_random_seed;
 
 enum TreeNodeTpye { enRootNode=0, enLinkNode=1, enLeafNode=2 };

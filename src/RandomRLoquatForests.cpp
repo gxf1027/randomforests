@@ -100,10 +100,10 @@ int CheckRegressionForestParameters(RandomRForests_info &RF_info)
 		RF_info.predictionModel = PredictionModel::constant;
 
 
-	RF_info.splitCrierion=SplitCriterion::mse;
+	// RF_info.splitCrierion=SplitCriterion::mse;
 	// TODO
-	// if (RF_info.splitCrierion != SplitCriterion::mse && RF_info.splitCrierion != SplitCriterion::covar)
-	// 	RF_info.splitCrierion = SplitCriterion::mse;
+	 if (RF_info.splitCrierion != SplitCriterion::mse && RF_info.splitCrierion != SplitCriterion::covar)
+	 	RF_info.splitCrierion = SplitCriterion::mse;
 	
 	return rv;
 }
@@ -1021,7 +1021,7 @@ int _SplitOnRLoquatNodeCompletelySearch(float** data, float* target, int variabl
 
 			detl = variables_num_y == 1 ? lCov[0][0] : CalculateDeterminant(lCov, variables_num_y);
 			detr = variables_num_y == 1 ? rCov[0][0] : CalculateDeterminant(rCov, variables_num_y);
-
+		
 			/*
 			if (detl <= 0) // 协方差矩阵半正定
 				detl = 1e-20;
@@ -1033,7 +1033,7 @@ int _SplitOnRLoquatNodeCompletelySearch(float** data, float* target, int variabl
 			*/
 
 			gini_like = (lcount  * detl + rcount * detr)/ innode_num; // lcount+rcount == innode_num
-
+			
 			if (gini_like < mingini)
 			{
 				bfindSplitV = true;
@@ -1252,7 +1252,7 @@ int SplitOnRLoquatNodeCompletelySearch(float** data, float* target, int variable
 }
 
 int _SplitOnRLoquatNode(float** data, const float* target, const int variables_num_x, const int variables_num_y,
-	const int* innode_samples_index, const int innode_num, const int Mvariable, int& split_variable_index, float& split_value)
+					const int* innode_samples_index, const int innode_num, const int Mvariable, int& split_variable_index, float& split_value)
 {
 	int i, j, m, n, index, rv = 1;
 	int lc_best = 0, rc_best = 0;
@@ -1372,6 +1372,14 @@ int _SplitOnRLoquatNode(float** data, const float* target, const int variables_n
 			// now lCov,rCov = ∑XX_T, lMean,rMean = n*X_hat;
 // 			lcount = (lcount == 0) ? 1 : lcount;
 // 			rcount = (rcount == 0) ? 1 : rcount; // 计数为0,则d*d维cov中每个元素为0,令count=1,能保证以下代码正常运行获得正确值
+
+			if (0 == lcount || 0 == rcount)
+			{
+				++counter;
+				splitv += step;
+				continue;
+			}
+
 			int ld = (lcount == 0) ? 1 : lcount;
 			int rd = (rcount == 0) ? 1 : rcount;
 			for (m = 0; m < variables_num_y; m++)
@@ -1395,7 +1403,7 @@ int _SplitOnRLoquatNode(float** data, const float* target, const int variables_n
 			gini_like = float(lcount/(double)innode_num*log(detl)+rcount/(double)innode_num*log(detr));// lcount+rcount == innode_num
 			*/
 
-			gini_like = (lcount * detl + rcount * detr) / innode_num;
+			gini_like = (lcount * RF_MAX(detl,0) + rcount * RF_MAX(detr,0)) / innode_num;
 
 			if (gini_like < mingini)
 			{
@@ -2114,7 +2122,7 @@ inline bool isConstant(const int* sample_index, int sample_num)
 	return true;
 }
 
-struct LoquatRTreeNode* GrowLoquatRTreeNodeRecursively(float** data, float* target, const int * sample_arrival_index, int arrival_num, const GrowNodeInput* pInputParam, struct LoquatRTreeStruct* loquatTree)
+struct LoquatRTreeNode* GrowLoquatRTreeNodeRecursively(float** data, float* target, const int * sample_arrival_index, const int arrival_num, const GrowNodeInput* pInputParam, struct LoquatRTreeStruct* loquatTree)
 {
 
 	int total_samples_num = pInputParam->total_samples_num;
@@ -2182,7 +2190,7 @@ struct LoquatRTreeNode* GrowLoquatRTreeNodeRecursively(float** data, float* targ
 		int (*split)(float** data, float* target, int variables_num_x, int variables_num_y,
 										const int* innode_samples_index, int innode_num, int Mvariable, int& split_variable_index, float& split_value);
 
-		if (total_variables_num_y > 1 &&  pInputParam->splitCriterion == SplitCriterion::mse )
+		if (total_variables_num_y > 1 &&  (arrival_num<20 || pInputParam->splitCriterion == SplitCriterion::mse) )
 		{
 			// multi-target regression with mse-based splitting criterion
 			split=SplitOnRNodeCompletelySearchBySortMSE;
@@ -2524,7 +2532,7 @@ int TrainRandomForestRegressor(float **data, float *target, RandomRForests_info 
 	}
 
 	delete [] target_inner;
-	
+
 	return rv;
 }
 

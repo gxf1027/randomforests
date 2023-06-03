@@ -28,7 +28,6 @@ using namespace std;
 #define STOP_CRITERION_MIN_GINI_IMPURITY	0.01    // 这个参数变小(0.1->0.01)可以显著提高分类准确率
 #define DEFAULT_MAX_TREE_DEPTH_C			40
 #define DEFAULT_MIN_SAMPLES_C				5
-#define RF_MAX(a,b)  ((a)>(b) ? (a) : (b))
 //#define new  new(_CLIENT_BLOCK, __FILE__, __LINE__)
 
 
@@ -63,19 +62,6 @@ Description: Using out-of-bag(oob) samples to estimate generalization error sequ
 int OOBErrorEstimateSequential(float** data, int* label, LoquatCForest* loquatForest, float*& error_rate_sequent, int isHardDecision = 1, char* filename = NULL);
 
 /*
-Description:    Compute Proximity Matrix, which is a useful tool in RFs model.
-Method:        "The proximities originally formed a NxN matrix. After a tree is grown, put all of the data, both training and oob, down the tree.
-				If cases k and n are in the same terminal node increase their proximity by one. At the end, normalize the proximities by dividing by the number of trees."
-				Leo Breiman and Adele Cutler:(http://www.stat.berkeley.edu/~breiman/RandomForests/cc_home.htm#ooberr).
-
-[in]:            1.data
-				 2.loquatForest
-[out]:           1.ProximityMatrix: a pointer to 2D array, whose memory should be allocated in advance and dimension is
-									samples_num*samples_num.
-*/
-int ComputeProximitiesMatrix(float** data, LoquatCForest* loquatForest, float** ProximityMatrix);
-
-/*
 Description:       Compute RF margin on one sample, using the method by Amir Saffari's ORF paper
 				   mg(X,y) = P(y|X) - max(p(k|X)), k≠y, y is the true label
 [in]:  1. data:            one sample
@@ -102,8 +88,6 @@ return:
 		0: Errors happen at getting the pointer of leaf node;
 */
 int ComputeVotingMargin(float** data, int* label, int samples_num, LoquatCForest* loquatForest, float& margin);
-
-
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
@@ -675,6 +659,7 @@ int TrainRandomForestClassifier(float **data, int *label, RandomCForests_info RF
 		loquatForest->loquatTrees[i] = NULL;
 	}
 
+	// ofstream msg("msg.txt");
 	for ( int i=0; i<Ntrees; i++ )
 	{
 		rv = GrowRandomizedCLoquatTreeRecursively( data, label, RFinfo, loquatForest->loquatTrees[i]);
@@ -686,12 +671,16 @@ int TrainRandomForestClassifier(float **data, int *label, RandomCForests_info RF
 			float ooberror = 0;
 			loquatForest->RFinfo.ntrees = i + 1;
 			OOBErrorEstimate(data, label, loquatForest, ooberror, 1);
+			// float mg = 0.f;
+			// ComputeVotingOOBMargin(data, label, loquatForest, mg);
 			cout << "Tree: " << i + 1 << "\tOOB error rate: " << ooberror * 100 << "%" << endl;
+			// cout << "Tree: " << i + 1 << "\tOOB error rate: " << ooberror * 100 << "%, margin: " << mg << endl;
+			// msg << ooberror << "," << mg << endl;
 			loquatForest->RFinfo.ntrees = Ntrees;
 		}
 		
 	}
-
+	// msg.close();
 	//////////////////////////test//////////////////////////
 	//cout << "split_count: " << split_count << " tm: " << tm1 / split_count << endl;
 
@@ -1938,7 +1927,7 @@ struct LoquatCTreeNode* GrowLoquatCTreeNodeRecursively(float** data, int* label,
 		switch (pInputParam->randomness)
 		{
 		case TREE_RANDOMNESS_WEAK:
-;			SplitOnDLoquatNodeCompletelySearch2(data, label, total_samples_num, total_variables_num, total_classes_num,
+			SplitOnDLoquatNodeCompletelySearch2(data, label, total_samples_num, total_variables_num, total_classes_num,
 				treeNode->samples_index, treeNode->arrival_samples_num,
 				pInputParam->mvariables, treeNode->split_variable_index, treeNode->split_value);
 			break;
@@ -2273,150 +2262,6 @@ int EvaluateOneSample(float* data, LoquatCForest* loquatForest, int& label_index
 	return rv;
 }
 
-int RawVariableImportanceScore(float **data, int *label, LoquatCForest *loquatForest, int nType, float *varImportance, bool bNormalize, char *filename)
-{
-	if( !(nType == 0 || nType == 1) )
-	{
-		cout<<endl;
-		cout<<"------------------ERROR:'RawVariableImportanceScore'------------------"<<endl;
-		cout<<"The input parameter 'nType' must be 0 or 1."<<endl;
-		cout<<" 'nType'     0: raw variable importance score"<<endl;
-		cout<<"             1: z-score"<<endl;
-		cout<<"----------------------------------------------------------------------"<<endl;
-		cout<<endl;
-		return -1;
-	}
-
-	int var, tr, i, j, oobnum, index, rand_premute_index;
-	//int samples_num = loquatForest->RFinfo.datainfo.samples_num;
-	int variables_num = loquatForest->RFinfo.datainfo.variables_num;
-	//int classes_num  = loquatForest->RFinfo.datainfo.classes_num;
-	int Ntrees = loquatForest->RFinfo.ntrees;
-	struct LoquatCTreeStruct *pTree = NULL;
-	int *pIndex = NULL, predicted_class_index;
-	float confidence;
-	int correct_num=0, correct_num_premute=0;
-	float tmp_data_var;
-	float *tmp_data = new float[variables_num];
-
-	int **DeltMatrix = new int *[Ntrees];
-	assert( DeltMatrix != NULL );
-	for( i=0; i<Ntrees; i++ )
-	{
-		DeltMatrix[i] = new int [variables_num];
-		memset( DeltMatrix[i], 0, sizeof(int)*variables_num );
-	}
-
-	float *mean_var = new float[variables_num];
-	memset(mean_var, 0, sizeof(float)*variables_num);
-	float *std2_var = new float[variables_num];
-	memset(std2_var, 0, sizeof(float)*variables_num);
-
-	for( tr=0; tr<Ntrees; tr++ )
-	{
-		pTree = loquatForest->loquatTrees[tr];
-		pIndex = pTree->outofbag_samples_index;
-		oobnum = pTree->outofbag_samples_num;
-
-		for ( correct_num=0, i=0; i<oobnum; i++ )
-		{
-			index = pIndex[i];
-			PredictAnTestSampleOnOneTree(data[index], variables_num, pTree, predicted_class_index, confidence);
-			if( predicted_class_index == label[index] )
-				correct_num++;
-		}
-
-		for ( var=0; var<variables_num; var++ )
-		{	
-			// permuting (var)th variables randomly
-			srand_freebsd(g_random_seed++);
-			for ( correct_num_premute=0, i=0; i<oobnum; i++ )
-			{
-				// rand_premute_index = rand() % oobnum;
-				rand_premute_index = rand_freebsd() % oobnum;
-				index = pIndex[rand_premute_index];
-				tmp_data_var = data[index][var];
-				//memcpy_s(tmp_data, variables_num*sizeof(float), data[pIndex[i]], variables_num*sizeof(float));
-				memcpy(tmp_data, data[pIndex[i]], variables_num*sizeof(float));
-				tmp_data[var] = tmp_data_var;
-				PredictAnTestSampleOnOneTree(tmp_data, variables_num, pTree, predicted_class_index, confidence);
-				if( predicted_class_index == label[pIndex[i]] )
-					correct_num_premute++;
-			}
-
-			DeltMatrix[tr][var] = correct_num - correct_num_premute;
-			mean_var[var] += correct_num - correct_num_premute;
-		}
-	}
-
-	for ( i=0; i<variables_num; i++ )
-		mean_var[i] = mean_var[i]/Ntrees;
-
-	for ( i=0; i<variables_num; i++ )
-	{
-		for ( j=0; j<Ntrees; j++ )
-			std2_var[i] += (DeltMatrix[j][i] - mean_var[i])*(DeltMatrix[j][i] - mean_var[i]);
-		std2_var[i] /= (Ntrees-1+VERY_SMALL_VALUE);
-	}
-
-	float fsum = 0;
-	if( nType == 0 )
-	{
-		for ( i=0; i<variables_num; i++ )
-		{
-			varImportance[i] = mean_var[i];
-			fsum += varImportance[i];
-		}
-	}
-	else  // z-score
-	{
-		float sqrtn = (float)sqrtf((float)Ntrees);
-		for ( i=0; i<variables_num; i++ )
-		{
-			varImportance[i] = mean_var[i]/(sqrtf(std2_var[i]+VERY_SMALL_VALUE)/sqrtn);
-			fsum += varImportance[i];
-		}
-	}
-
-	// Normalization
-	if( bNormalize ){
-		for ( i=0; i<variables_num; i++ )
-			varImportance[i] /= fsum;
-	}
-
-	delete [] tmp_data;
-
-	for ( i=0; i<Ntrees; i++ )
-	{
-		delete [] DeltMatrix[i];
-		DeltMatrix[i] = NULL;
-	}
-	delete [] DeltMatrix;
-	delete [] mean_var;
-	delete [] std2_var;
-
-
-	if( filename != NULL )
-	{
-		fstream vieFile;
-		vieFile.open(filename, ios_base::out);
-		if( !vieFile.is_open() )
-		{
-			cout<<endl;
-			cout<<"-----------------  ERROR:'RawVariableImportanceScore'-----------------"<<endl;
-			cout<<"Warning: file is not created."<<endl;
-			cout<<"----------------------------------------------------------------------"<<endl;
-			cout<<endl;
-			return 1;
-		}
-		for( i=0; i<variables_num; i++ )
-			vieFile<<varImportance[i]<<endl;
-		vieFile.close();
-	}
-
-	return 1;
-}
-
 int RawVariableImportanceScore2(float** data, int* label, LoquatCForest* loquatForest, int nType, float* varImportance, bool bNormalize, char* filename)
 {
 	if (!(nType == 0 || nType == 1))
@@ -2458,6 +2303,10 @@ int RawVariableImportanceScore2(float** data, int* label, LoquatCForest* loquatF
 		pTree = loquatForest->loquatTrees[tr];
 		pIndex = pTree->outofbag_samples_index;
 		oobnum = pTree->outofbag_samples_num;
+
+		if (pIndex == NULL || oobnum == 0)
+			continue;
+
 		int* permuted_order = new int[oobnum];
 
 		for (correct_num = 0, i = 0; i < oobnum; i++)
@@ -3383,6 +3232,63 @@ int ComputeVotingMarginOnOneSample(float *data, int label, LoquatCForest *loquat
 	return rv;
 }
 
+int ComputeVotingOOBMarginOnOneSample(float* data, int label, int index, LoquatCForest* loquatForest, float& margin)
+{
+	const struct LoquatCTreeNode* leafNode = NULL;
+	int ntrees = loquatForest->RFinfo.ntrees;
+	int classes_num = loquatForest->RFinfo.datainfo.classes_num;
+	int i, j, rv = 1;
+	int* accumul_class_votes = new int[classes_num];
+	memset(accumul_class_votes, 0, sizeof(int) * classes_num);
+
+	int oob_trees = 0;
+
+	for (i = 0; i < ntrees; i++)
+	{
+		const LoquatCTreeStruct* tree = loquatForest->loquatTrees[i];
+		bool isOOB = false;
+		for (int n = 0; n < tree->outofbag_samples_num; n++)
+		{
+			if (tree->outofbag_samples_index[n] == index)
+			{
+				isOOB = true;
+				break;
+			}
+		}
+
+		if (false == isOOB)
+			continue;
+		oob_trees++;
+		leafNode = GetArrivedLeafNode(loquatForest, i, data);
+		if (NULL == leafNode)
+		{
+			rv = 0;   // 有错误产生，但不至于退出函数
+			continue; // 下一棵树
+		}
+		accumul_class_votes[leafNode->leaf_node_label]++;
+	}
+
+	if (0 == oob_trees)
+		return -1;
+
+	int max_votes = -1;
+	for (j = 0; j < classes_num; j++)
+	{
+		if (j == label)
+			continue;
+		if (accumul_class_votes[j] > max_votes)
+			max_votes = accumul_class_votes[j];
+	}
+
+	margin = (accumul_class_votes[label] - 1.0f*max_votes)/oob_trees;
+	if (margin < 0) {
+		int xx = 1;
+	}
+	delete[] accumul_class_votes;
+
+	return rv;
+}
+
 int ComputeVotingMargin(float **data, int *label, int samples_num, LoquatCForest *loquatForest, float &margin)
 {
 	float tmp = 0.f, m = 0.f;
@@ -3395,6 +3301,27 @@ int ComputeVotingMargin(float **data, int *label, int samples_num, LoquatCForest
 	}
 	margin = tmp/samples_num;
 	return 1;
+}
+
+int ComputeVotingOOBMargin(float** data, int* label, LoquatCForest* loquatForest, float& margin)
+{
+	float tmp = 0.f, m = 0.f;
+	int rv = 0, count = 0;
+	const int samples_num = loquatForest->RFinfo.datainfo.samples_num;
+
+	for (int k = 0; k < samples_num; k++)
+	{
+		rv = ComputeVotingOOBMarginOnOneSample(data[k], label[k], k, loquatForest, m);
+		tmp += m *(rv>0 ? 1:0);
+		count += (rv > 0 ? 1 : 0);
+	}
+	if (count > 0)
+	{
+		margin = tmp / count;
+		return 1;
+	}
+	margin = 0.f;
+	return 0;
 }
 
 int HarvestOneLeafNode(struct LoquatCTreeNode **treeNode)
