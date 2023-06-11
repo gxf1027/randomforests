@@ -2276,7 +2276,7 @@ int RawVariableImportanceScore2(float** data, int* label, LoquatCForest* loquatF
 		return -1;
 	}
 
-	int var, tr, i, j, oobnum, index;
+	int var, tr, i, j, oobnum, index, rv=1;
 	const int variables_num = loquatForest->RFinfo.datainfo.variables_num;
 	const int Ntrees = loquatForest->RFinfo.ntrees;
 	struct LoquatCTreeStruct* pTree = NULL;
@@ -2296,8 +2296,11 @@ int RawVariableImportanceScore2(float** data, int* label, LoquatCForest* loquatF
 	float* mean_var = new float[variables_num];
 	memset(mean_var, 0, sizeof(float) * variables_num);
 	float* std2_var = new float[variables_num];
-	memset(std2_var, 0, sizeof(float) * variables_num);	
+	memset(std2_var, 0, sizeof(float) * variables_num);
+	int* oobOfTrees = new int[Ntrees];
+	memset(oobOfTrees, 0, sizeof(int) * Ntrees);
 
+	bool oobFound = false;
 	for (tr = 0; tr < Ntrees; tr++)
 	{
 		pTree = loquatForest->loquatTrees[tr];
@@ -2306,9 +2309,10 @@ int RawVariableImportanceScore2(float** data, int* label, LoquatCForest* loquatF
 
 		if (pIndex == NULL || oobnum == 0)
 			continue;
-
+		oobFound = true;
+		oobOfTrees[tr] = oobnum;
 		int* permuted_order = new int[oobnum];
-
+		
 		for (correct_num = 0, i = 0; i < oobnum; i++)
 		{
 			index = pIndex[i];
@@ -2335,10 +2339,20 @@ int RawVariableImportanceScore2(float** data, int* label, LoquatCForest* loquatF
 			}
 
 			DeltMatrix[tr][var] = correct_num - correct_num_premute;
-			mean_var[var] += (correct_num - correct_num_premute);
+			mean_var[var] += (correct_num - correct_num_premute) / (float)oobOfTrees[tr];
 		}
 
 		delete[]permuted_order;
+	}
+
+	if (oobFound == false)
+	{
+		cout << endl;
+		cout << "-----------------  ERROR:'RawVariableImportanceScore'-----------------" << endl;
+		cout << "Error: Out-of-bag samples are not found in RF. The results mean nothing." << endl;
+		cout << "----------------------------------------------------------------------" << endl;
+		cout << endl;
+		rv = 0;
 	}
 
 	for (i = 0; i < variables_num; i++)
@@ -2347,7 +2361,10 @@ int RawVariableImportanceScore2(float** data, int* label, LoquatCForest* loquatF
 	for (i = 0; i < variables_num; i++)
 	{
 		for (j = 0; j < Ntrees; j++)
-			std2_var[i] += (DeltMatrix[j][i] - mean_var[i]) * (DeltMatrix[j][i] - mean_var[i]);
+		{ 
+			if (oobOfTrees[j] > 0)
+				std2_var[i] += (DeltMatrix[j][i] / (float)oobOfTrees[j] - mean_var[i]) * (DeltMatrix[j][i] / (float)oobOfTrees[j] - mean_var[i]);
+		}
 		std2_var[i] /= Ntrees;
 	}
 
@@ -2394,7 +2411,7 @@ int RawVariableImportanceScore2(float** data, int* label, LoquatCForest* loquatF
 		memcpy(varImportance, z_score, sizeof(float) * variables_num);
 	}
 
-	int rv = 1;
+	
 	if (filename != NULL)
 	{
 		fstream vieFile;
@@ -2415,7 +2432,7 @@ int RawVariableImportanceScore2(float** data, int* label, LoquatCForest* loquatF
 				vieFile << i << "\t\t" << raw_score[i] << "\t\t" << z_score[i] << endl;
 			vieFile.close();
 		}
-		
+
 	}
 
 	delete[] tmp_data;
@@ -2428,6 +2445,7 @@ int RawVariableImportanceScore2(float** data, int* label, LoquatCForest* loquatF
 	delete[] DeltMatrix;
 	delete[] mean_var;
 	delete[] std2_var;
+	delete[] oobOfTrees;
 	delete[] raw_score;
 	delete[] z_score;
 
