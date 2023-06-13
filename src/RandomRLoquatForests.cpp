@@ -2514,7 +2514,7 @@ int TrainRandomForestRegressor(float **data, float *target, RandomRForests_info 
 			float ooberror = 0;
 			loquatForest->RFinfo.ntrees = i + 1;
 			float* mse = NULL;
-			MSEOnOutOfBagSamples(data, tgt, loquatForest, mse);
+			MSEOnOutOfBagSamples(data, target/*origin 'target', not 'tgt'*/, loquatForest, mse);
 			cout << "Tree: " << i + 1 << " OOB mse: \t";
 			for (int m = 0; m < loquatForest->RFinfo.datainfo.variables_num_y; m++)
 				cout << mse[m] << " ";
