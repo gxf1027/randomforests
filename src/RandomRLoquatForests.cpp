@@ -3105,6 +3105,171 @@ int ReleaseRegressionForest(LoquatRForest **loquatForest)
 	return 1;
 }
 
+int RawVariableImportanceScore(float** data, float* target, LoquatRForest* loquatForest, int nType, float* varImportance, bool bNormalize, char* filename)
+{
+	if (!(nType == 0 || nType == 1))
+	{
+		cout << endl;
+		cout << "------------------ERROR:'RawVariableImportanceScore'------------------" << endl;
+		cout << "The input parameter 'nType' must be 0 or 1." << endl;
+		cout << " 'nType'     0: raw variable importance score" << endl;
+		cout << "             1: z-score" << endl;
+		cout << "----------------------------------------------------------------------" << endl;
+		cout << endl;
+		return -1;
+	}
+
+	int var, tr, i, j, oobnum, index;
+	const int variables_num = loquatForest->RFinfo.datainfo.variables_num_x;
+	const int target_num = loquatForest->RFinfo.datainfo.variables_num_y;
+	const int Ntrees = loquatForest->RFinfo.ntrees;
+	int* pIndex = NULL;
+	float confidence,  predicted=0.f;
+	float *mse = new float[target_num];
+	float *mse_premute = new float[target_num];
+	float *target_predicted = NULL;
+	float* tmp_data = new float[variables_num];
+
+	float** DeltMatrix = new float * [Ntrees];
+	for (i = 0; i < Ntrees; i++)
+	{
+		DeltMatrix[i] = new float[variables_num];
+		memset(DeltMatrix[i], 0, sizeof(float) * variables_num);
+	}
+
+	float* mean_var = new float[variables_num];
+	memset(mean_var, 0, sizeof(float) * variables_num);
+	float* std2_var = new float[variables_num];
+	memset(std2_var, 0, sizeof(float) * variables_num);	
+	int *oobOfTrees = new int[Ntrees];
+	
+	for (tr = 0; tr < Ntrees; tr++)
+	{
+		pIndex = loquatForest->loquatTrees[tr]->outofbag_samples_index;
+		oobnum = loquatForest->loquatTrees[tr]->outofbag_samples_num;
+		oobOfTrees[tr] = oobnum;
+		int* permuted_order = new int[oobnum];
+		memset(mse, 0, sizeof(float)*target_num);
+		for (i = 0; i < oobnum; i++)
+		{
+			index = pIndex[i];
+			target_predicted = GetArrivedLeafNode(loquatForest, tr,  data[index])->pLeafNodeInfo->MeanOfArrived;
+				
+			for(int k=0; k<target_num; k++)
+			{
+				predicted = loquatForest->bTargetNormalize == false ? target_predicted[k] : (target_predicted[k] - loquatForest->offset[k])/ loquatForest->scale[k];
+				mse[k] += (target[index*target_num+k]-predicted) * (target[index*target_num+k]-predicted);
+			}	
+		}
+
+		for (var = 0; var < variables_num; var++)
+		{
+			// permuting (var)th variables
+			// permute [0, oobnum-1]
+			permute(oobnum, permuted_order);
+			memset(mse_premute, 0, sizeof(float)*target_num);
+			for (i = 0; i < oobnum; i++)
+			{
+				index = pIndex[permuted_order[i]];
+				memcpy(tmp_data, data[pIndex[i]], variables_num * sizeof(float));
+				tmp_data[var] = data[index][var];
+				target_predicted = GetArrivedLeafNode(loquatForest, tr,  tmp_data)->pLeafNodeInfo->MeanOfArrived;
+
+				for(int k=0; k<target_num; k++)
+				{
+					predicted = loquatForest->bTargetNormalize == false ? target_predicted[k]  : (target_predicted[k] -loquatForest->offset[k])/loquatForest->scale[k];
+					mse_premute[k] +=(target[pIndex[i]*target_num+k] - predicted)*(target[pIndex[i]*target_num+k] - predicted);
+				}
+		
+			}
+
+			for (int k=0; k<target_num; k++)
+				DeltMatrix[tr][var] += (mse_premute[k] - mse[k]);
+			mean_var[var] += DeltMatrix[tr][var]/(float)oobOfTrees[tr];
+		}
+
+		delete[]permuted_order;
+	}
+
+	for (i = 0; i < variables_num; i++)
+		mean_var[i] = mean_var[i] / Ntrees;
+
+	for (i = 0; i < variables_num; i++)
+	{
+		for (j = 0; j < Ntrees; j++)
+			std2_var[i] += (DeltMatrix[j][i]/(float)oobOfTrees[j] - mean_var[i]) * (DeltMatrix[j][i]/(float)oobOfTrees[j] - mean_var[i]);
+		std2_var[i] /= Ntrees;
+	}
+
+	float* raw_score = new float[variables_num];
+	float* z_score = new float[variables_num];
+	memset(raw_score, 0, sizeof(float) * variables_num);
+	memset(z_score, 0, sizeof(float) * variables_num);
+
+	float fsum = 0.f;
+	// raw score
+	for (i = 0; i < variables_num; i++)
+	{
+		raw_score[i] = mean_var[i];
+		fsum += raw_score[i];
+	}
+
+	// Normalization
+	if (bNormalize) {
+		for (i = 0; i < variables_num; i++)
+			raw_score[i] /= fsum;
+	}
+
+	// z-score
+	fsum = 0.f;
+	for (i = 0; i < variables_num; i++)
+	{
+		//varImportance[i] = mean_var[i] / (sqrtf(std2_var[i] + VERY_SMALL_VALUE) / sqrtn);
+		z_score[i] = mean_var[i] / (sqrtf(std2_var[i]) + FLT_EPSILON); //0530
+		fsum += z_score[i];
+	}
+
+	// Normalization
+	if (bNormalize) {
+		for (i = 0; i < variables_num; i++)
+			z_score[i] /= fsum;
+	}
+
+	if (nType == 0) // raw_score
+		memcpy(varImportance, raw_score, sizeof(float) * variables_num);
+	else  // z-score
+		memcpy(varImportance, z_score, sizeof(float) * variables_num);
+
+	if (filename != NULL)
+	{
+		fstream vieFile;
+		vieFile.open(filename, ios_base::out);
+		if (vieFile.is_open())
+		{
+			vieFile << "variable index" << "\t" << "raw score" << "\t\t" << "z-score" << endl;
+			for (i = 0; i < variables_num; i++)
+				vieFile << i << "\t\t" << raw_score[i] << "\t\t" << z_score[i] << endl;
+			vieFile.close();
+		}
+	}
+
+	delete[] tmp_data;
+	delete[] mse;
+	delete[] mse_premute;
+	for (i = 0; i < Ntrees; i++)
+	{
+		delete[] DeltMatrix[i];
+		DeltMatrix[i] = NULL;
+	}
+	delete[] DeltMatrix;
+	delete[] mean_var;
+	delete[] std2_var;
+	delete[] oobOfTrees;
+	delete[] raw_score;
+	delete[] z_score;
+
+	return 1;
+}
 
 int RegressionForestGAPProximity(LoquatRForest* forest, float** data, const int index_i, float*& proximities)
 {

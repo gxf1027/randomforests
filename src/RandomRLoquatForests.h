@@ -134,6 +134,28 @@ int MSEOnTestSamples(float **data_test, float *target, int nTestSamplesNum, Loqu
 int MSEOnOutOfBagSamples(float **data, float *target_test, LoquatRForest *loquatForest, float *&mean_squared_error);
 
 /*
+Description:     Compute raw/z-score variables Importance.
+Method:         "In every tree grown in the forest, put down the oob cases and count the number of votes cast for the correct class.
+				 Now randomly permute the values of variable m in the oob cases and put these cases down the tree.
+				 Subtract the number of votes for the correct class in the variable-m-permuted oob data from the number of votes for the correct class in the untouched oob data.
+				 The average of this number over all trees in the forest is the raw importance score for variable m.
+
+				 If the values of this score from tree to tree are independent, then the standard error can be computed by a standard computation.
+				 The correlations of these scores between trees have been computed for a number of data sets and proved to be quite low,
+				 therefore we compute standard errors in the classical way, divide the raw score by its standard error to get a z-score,
+				 ands assign a significance level to the z-score assuming normality."
+				 Leo Breiman and Adele Cutler:(https://www.stat.berkeley.edu/~breiman/RandomForests/cc_home.htm#varimp)
+
+[in]:			1.data:			two dimension array [N][M], containing the total training data with their variable
+				2.label:		the labels of training data
+				3.loquatForest:	the trained Random Forests model, which also includes data information and model information
+				4.nType:		0: raw variable importance score
+								1: z-score
+[out]:			1.varImportance:	normalized raw/z-score importance score.
+*/
+int RawVariableImportanceScore(float** data, float* target, LoquatRForest* loquatForest, int nType, float* varImportance, bool bNormalize, char* filename);
+
+/*
 Description:	calculate proximities between the i-th sample and every other sample with algorithm proposed by
 				'Jake S.Rhodes, Adele Cutler, Kevin R. Moon. Geometry- and Accuracy-Preserving Random Forest Proximities. TPAMI,2023.'
 [in]
