@@ -5,8 +5,9 @@ C++ implementation of random forests
 1. 适用于分类和回归，支持回归的多维输出(multi-target regression)
 2. 支持3种随机性
 3. off-the-shelf，即插即用
-4. 支持variable importance evaluation
-5. 可保存训练完成的模型至本地 (XML格式，可读性强)，也可读取本地模型进行预测<sup>*</sup>  
+4. 支持[特征重要性评估](https://blog.csdn.net/gxf1027/article/details/131040910)
+5. 支持计算[proximity](https://blog.csdn.net/gxf1027/article/details/130701720)和离群点检测
+6. 可保存训练完成的模型至本地 (XML格式，可读性强)，也可读取本地模型进行预测<sup>*</sup>  
 <font size=2>（使用[tinyxml2](https://github.com/leethomason/tinyxml2)库支持xml文件的读写）</font>
 
 ## <font size=4>使用</font>
@@ -207,6 +208,10 @@ int main()
 **特征重要性**  
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;特征重要性(variable importance)的评估是RF“自带”的一个特性。采用oob数据的特征随机交换的方法来估计特征重要性。对于数据集"waveform"，结果如下图所示，可见后一半特征的重要性几乎为0，这是因为waveform的后19维特征是随机噪声，因此variable importance计算结果符合上述情况。
 ![在这里插入图片描述](https://raw.githubusercontent.com/gxf1027/randomforests/main/images/vim-waveform-style-seaborn0623.png)
+
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;使用[mnist](https://www.csie.ntu.edu.tw/~cjlin/libsvmtools/datasets/multiclass.html)手写字符识别数据集训练随机森林分类器，样本数60000，特征数780。RF参数为：随机树 $T=200$，分类候选特征数 $\sqrt{780}$，节点最小样本数5，最大树深度40。将特征重要性的输出值转换为相同分辨率的图像（28x28，780+4，在最后增补了4个0），如下图。可以看到重要特征集中在图像中部，周边的特征重要性非常低，这也符合手写字符训练图像周边像素大多为0的情况。
+
+![在这里插入图片描述](https://raw.githubusercontent.com/gxf1027/randomforests/main/images/vim-mnist-img-plt-div-oobnum-0606-raw-score-1.png)
 
 **多目标回归**
 
