@@ -3718,5 +3718,7 @@ void PrintForestInfo(const LoquatCForest* forest, ostream &out)
 	aver_leaf_nodes /= forest->RFinfo.ntrees;
 	out << "-------------------------------------------------------------------------" << endl;
 	out << "max depth: " <<max_depth<<"("<<max_depth_tree<<"),\t max_nodes: "<<max_nodes<<"("<<max_nodes_tree<<"),\t max_leaf: "<<max_leaf_nodes<<"("<<max_leaf_nodes_tree<<")"<< endl;
+    streamsize ss = std::cout.precision();
 	out << setiosflags(ios::fixed)<< std::setprecision(1) << "aver depth: " << aver_depth << ", \t aver nodes: " << aver_nodes << ", \t aver leaf nodes: " << aver_leaf_nodes << endl;
+    out << resetiosflags(ios::fixed)<<std::setprecision(ss); // set back
 }
