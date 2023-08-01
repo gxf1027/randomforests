@@ -13,9 +13,9 @@ C++ implementation of random forests
 ## <font size=4>使用</font>
 
 从本地数据文件读入数据集进行训练，计算oob-error(oob-mse)，并保存forest到本地。
-本地训练文件格式：
+本地训练文件格式(dataset files for trainning)：
 
-分类
+分类(classification)
 ```plain
 @totoal_sample_num=19020
 @variable_num=10
@@ -26,9 +26,10 @@ C++ implementation of random forests
 1 19.55 10.763 2.3201 0.6077 0.3421 8.3626 -17.38 -10.092 17.368 173.39
 0 67.609 26.678 2.632 0.3851 0.2462 -56.63 -57.963 19.806 79.666 227.19
 1 24.909 17.432 2.632 0.3944 0.2229 7.1171 -2.3838 -8.6055 37.114 204.79
+... ...
 ```
 
-回归
+回归(regression)
 ```plain
 @totoal_sample_num=4177
 @variable_num_x=8
@@ -39,9 +40,10 @@ C++ implementation of random forests
 10 1 0.44 0.365 0.125 0.516 0.2155 0.114 0.155 
 7 3 0.33 0.255 0.08 0.205 0.0895 0.0395 0.055 
 8 3 0.425 0.3 0.095 0.3515 0.141 0.0775 0.12
+... ...
 ```
 
-（1）分类森林
+（1）分类森林(classification forest)
 ```cpp
 #include <cmath>
 using namespace std;
@@ -82,7 +84,7 @@ int main()
 	return 0;
 }
 ```
-（2）回归森林
+（2）回归森林(regression forest)
 ```cpp
 #include "RandomRLoquatForests.h"
 #include "UserInteraction2.h"
@@ -198,14 +200,14 @@ int main()
 #:表示使用回归森林默认的 $\frac {variable\_num\_x}3$ 作为SplitVariables参数
 
 ## <font size=4>分析</font>
-**参数影响**  
+**参数影响(parameters)**  
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;通常RF在默认参数设定下也能取得较理想的效果，通过对参数（见2.2节）调优可以获得更佳的分类/回归效果。一般可以对TreesNum和SplitVariables进行调优。通常认为增加TreesNum会使泛化误差下降（当然也有特例）。如下图，展示了随着树增加，oob error/oob mse呈现下降的趋势。
 ![在这里插入图片描述](https://raw.githubusercontent.com/gxf1027/randomforests/main/images/oob-error-oob-mse.png)
 
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;SplitVariables是控制RF随机性的主要参数，当它增加时树之间的关联性也随之增加，而关联性增加会导致分类/回归误差提高[<sup>[2]</sup>](#refer-anchor-2)。从可调性(Tunability)角度考虑，调节SplitVariables对性能提升的贡献是最大的。而SplitVariables选择默认设定时，通常也能取得不错的效果。下图为pendigits数据集上，不同SplitVariables（样本为16维，TreesNum=500）参数下的分类oob error。
 ![在这里插入图片描述](https://raw.githubusercontent.com/gxf1027/randomforests/main/images/splitVariables.png)
 
-**特征重要性**  
+**特征重要性(Variable Importance Measurement)**  
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;特征重要性(variable importance)的评估是RF“自带”的一个特性。采用oob数据的特征随机交换的方法来估计特征重要性。对于数据集"waveform"，结果如下图所示，可见后一半特征的重要性几乎为0，这是因为waveform的后19维特征是随机噪声，因此variable importance计算结果符合上述情况。
 ![在这里插入图片描述](https://raw.githubusercontent.com/gxf1027/randomforests/main/images/vim-waveform-style-seaborn0623.png)
 
@@ -213,7 +215,7 @@ int main()
 
 ![在这里插入图片描述](https://raw.githubusercontent.com/gxf1027/randomforests/main/images/vim-mnist-img-plt-div-oobnum-0606-raw-score-1.png)
 
-**多目标回归**
+**多目标回归(Multi-target regression)**
 
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;这里多目标指的是回归目标是多维的，一般称为multivariate regression或者multi-target regression。可以将多维目标分解为多个单独的回归问题，即可以对每一维输出输出单独训练一个模型，那么输出有 $N$ 维就要训练 $N$ 个随机森林模型，预测时也要获取多个随机森林的输出。使用随机森林也可以**直接**对多维输出（多目标）进行训练，这里也使用这种方法对多维输出进行预测。
 
