@@ -52,6 +52,7 @@ void permute(const int n, int* order_permuted);
 #define KCF_ASSERT(condition)
 #endif
 
+/*
 // ÄÚ´æ¹ÜÀí
 typedef struct tagKCFMem
 {
@@ -63,5 +64,6 @@ typedef struct tagKCFMem
 void* kcfAlloc(KCFMemPool* pool, unsigned int size);
 
 void kcfFree(KCFMemPool* pool, void** ptr, unsigned int size);
+*/
 
 #endif
