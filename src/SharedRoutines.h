@@ -64,6 +64,7 @@ typedef struct tagKCFMem
 void* kcfAlloc(KCFMemPool* pool, unsigned int size);
 
 void kcfFree(KCFMemPool* pool, void** ptr, unsigned int size);
+
 */
 
 #endif

@@ -19,6 +19,8 @@ Reference 	[1]. Leo Breiman. Random Forests. Machine Learning 45 (1), 5¨C32, 200
 #include <string>
 #include "SharedRoutines.h"
 
+// #define OPENMP_SPEEDUP
+
 /*-----------------------------------------------STRUCTURE DIFINITION-----------------------------------------------*/
 typedef struct Dataset_info_C
 {
@@ -118,6 +120,9 @@ NOTE: The user MUSTN'T allocate memory for loquatForest before this function is 
 	  Memory management is handled by the function automatically.
 */
 int TrainRandomForestClassifier(float** data, int* label, RandomCForests_info RFinfo, LoquatCForest*& loquatForest, int trace = 0);
+#ifdef OPENMP_SPEEDUP
+int TrainRandomForestClassifierOMP(float** data, int* label, RandomCForests_info RFinfo, LoquatCForest*& loquatForest, int jobs, int trace);
+#endif
 
 /*
 Description:	Train a Random Forests model using adaptive stopping criterion,
@@ -231,6 +236,9 @@ Method:         "In every tree grown in the forest, put down the oob cases and c
 [out]:			1.varImportance:	normalized raw/z-score importance score.
 */
 int RawVariableImportanceScore2(float** data, int* label, LoquatCForest* loquatForest, int nType, float* varImportance, bool bNormalize, char* filename = 0);
+#ifdef OPENMP_SPEEDUP
+int RawVariableImportanceScore2OMP(float** data, int* label, LoquatCForest* loquatForest, int nType, float* varImportance, bool bNormalize, char* filename, int jobs);
+#endif
 
 /*
 Description:	calculate proximities between the i-th sample and every other sample with algorithm proposed by
@@ -242,6 +250,9 @@ return:			1  -- success
 
 */
 int ClassificationForestGAPProximity(LoquatCForest* forest, float** data, const int index_i, float*& proximities);
+#ifdef OPENMP_SPEEDUP
+int ClassificationForestGAPProximityOMP(LoquatCForest* forest, float** data, const int index_i, float*& proximities, int jobs);
+#endif
 
 /*
 Description:    Compute raw outlier measurement using RF-GAP.

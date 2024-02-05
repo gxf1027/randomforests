@@ -191,6 +191,7 @@ void permute(const int n, int* order_permuted)
 	delete[] order;
 }
 
+
 /*
 void* kcfAlloc(KCFMemPool* pool, unsigned int size)
 {
@@ -216,5 +217,4 @@ void kcfFree(KCFMemPool* pool, void** ptr, unsigned int size)
 	KCF_ASSERT((long)pool->used - (long)size >= 0);
 	pool->used -= size;
 }
-
 */
