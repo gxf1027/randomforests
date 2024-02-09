@@ -1,0 +1,8 @@
+<?xml version="1.0" ?>
+<RandomForestConfig>
+    <MaxDepth>40</MaxDepth>
+    <TreesNum>200</TreesNum>
+    <SplitVariables>-1</SplitVariables>
+    <MinSamplesSplit>5</MinSamplesSplit>
+    <Randomness>1</Randomness>
+</RandomForestConfig>
