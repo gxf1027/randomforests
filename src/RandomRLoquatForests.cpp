@@ -2122,7 +2122,7 @@ inline bool isConstant(const int* sample_index, int sample_num)
 	return true;
 }
 
-struct LoquatRTreeNode* GrowLoquatRTreeNodeRecursively(float** data, float* target, const int * sample_arrival_index, const int arrival_num, const GrowNodeInput* pInputParam, struct LoquatRTreeStruct* loquatTree)
+struct LoquatRTreeNode* GrowLoquatRTreeNodeRecursively(float** data, float* target, int* sample_arrival_index, const int arrival_num, const GrowNodeInput* pInputParam, struct LoquatRTreeStruct* loquatTree)
 {
 
 	int total_samples_num = pInputParam->total_samples_num;
@@ -2183,6 +2183,8 @@ struct LoquatRTreeNode* GrowLoquatRTreeNodeRecursively(float** data, float* targ
 										treeNode->pLeafNodeInfo /*OUT*/);
 		treeNode->pLeafNodeInfo->arrivedRatio = treeNode->arrival_samples_num / (float)pInputParam->samples_num_of_tree;
 		treeNode->pLeafNodeInfo->dimension = total_variables_num_y;
+		treeNode->samples_index = new int[treeNode->arrival_samples_num]; // 20230604
+		memcpy(treeNode->samples_index, sample_arrival_index, sizeof(int) * treeNode->arrival_samples_num);
 	}
 	else
 	{
@@ -2254,6 +2256,10 @@ struct LoquatRTreeNode* GrowLoquatRTreeNodeRecursively(float** data, float* targ
 
 			if (NULL != subnode_samples_queue)
 				delete[] subnode_samples_queue;
+
+			treeNode->samples_index = new int[treeNode->arrival_samples_num]; // 20230604
+			memcpy(treeNode->samples_index, sample_arrival_index, sizeof(int) * treeNode->arrival_samples_num);
+
 			return treeNode;
 		}
 
@@ -2284,10 +2290,16 @@ struct LoquatRTreeNode* GrowLoquatRTreeNodeRecursively(float** data, float* targ
 		treeNode->pSubNode[1]->pParentNode = treeNode;
 
 		delete[] subnode_samples_queue;
-		treeNode->pSubNode[0]->samples_index = NULL;
-		treeNode->pSubNode[0]->arrival_samples_num = 0;
-		treeNode->pSubNode[1]->samples_index = NULL;
-		treeNode->pSubNode[1]->arrival_samples_num = 0;
+		if (treeNode->pSubNode[0]->nodetype != TreeNodeTpye::enLeafNode)
+		{
+			treeNode->pSubNode[0]->samples_index = NULL;
+			treeNode->pSubNode[0]->arrival_samples_num = 0;
+		}
+		if (treeNode->pSubNode[1]->nodetype != TreeNodeTpye::enLeafNode)
+		{
+			treeNode->pSubNode[1]->samples_index = NULL;
+			treeNode->pSubNode[1]->arrival_samples_num = 0;
+		}
 	}
 
 	return treeNode;
@@ -2387,14 +2399,12 @@ int GrowRandomizedRLoquatTreeRecursively(float** data, float* target, const Rand
 const struct LoquatRTreeNode *GetArrivedLeafNode(LoquatRForest *RF, int tree_index, float *data)
 {
 	int total_tree_num = RF->RFinfo.ntrees;
-	int variables_num_x = RF->RFinfo.datainfo.variables_num_x;
 	if( tree_index < 0 && tree_index >= total_tree_num )
 		return NULL;
 
-	int max_depth_index = RF->loquatTrees[tree_index]->depth, cc=0;
+	const int max_depth_index = RF->loquatTrees[tree_index]->depth;
+	int depth = 0;
 	struct LoquatRTreeNode *pNode = RF->loquatTrees[tree_index]->rootNode;
-	int test_variables_index;
-	float test_splitv;
 
 	while(1)
 	{
@@ -2404,18 +2414,12 @@ const struct LoquatRTreeNode *GetArrivedLeafNode(LoquatRForest *RF, int tree_ind
 		if( pNode->nodetype == enLeafNode )
 			return pNode;
 
-		test_variables_index = pNode->split_variable_index;
-		test_splitv = pNode->split_value;
-
-		if( test_variables_index >= variables_num_x )
-			return NULL;
-
-		if( data[test_variables_index] <= test_splitv )
+		if( data[pNode->split_variable_index] <= pNode->split_value)
 			pNode = pNode->pSubNode[0]; // ×óÖ¦
 		else
 			pNode = pNode->pSubNode[1]; // ÓÒÖ¦
 
-		if( (++cc) > max_depth_index )
+		if( (++depth) > max_depth_index )
 			break;
 	}
 

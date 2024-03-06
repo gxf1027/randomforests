@@ -2567,14 +2567,12 @@ int PredictAnTestSampleOnOneTree(float *data, const int variables_num, struct Lo
 const struct LoquatCTreeNode *GetArrivedLeafNode(const LoquatCForest *RF, const int tree_index, float *data)
 {
 	int total_tree_num = RF->RFinfo.ntrees;
-	int variables_num = RF->RFinfo.datainfo.variables_num;
 	if( tree_index < 0 && tree_index >= total_tree_num )
 		return NULL;
 
-	int max_depth_index = RF->loquatTrees[tree_index]->depth, cc=0;
+	const int max_depth_index = RF->loquatTrees[tree_index]->depth;
+	int depth = 0;
 	struct LoquatCTreeNode *pNode = RF->loquatTrees[tree_index]->rootNode;
-	int test_variables_index;
-	float test_splitv;
 
 	while(1)
 	{
@@ -2584,18 +2582,12 @@ const struct LoquatCTreeNode *GetArrivedLeafNode(const LoquatCForest *RF, const 
 		if( pNode->nodetype == TreeNodeTpye::enLeafNode )
 			return pNode;
 
-		test_variables_index = pNode->split_variable_index;
-		test_splitv = pNode->split_value;
-
-		if( test_variables_index >= variables_num )
-			return NULL;
-
-		if( data[test_variables_index] <= test_splitv )
+		if( data[pNode->split_variable_index] <= pNode->split_value )
 			pNode = pNode->pSubNode[0]; // ×óÖ¦
 		else
 			pNode = pNode->pSubNode[1]; // ÓÒÖ¦
 
-		if( (++cc) > max_depth_index )
+		if( (++depth) > max_depth_index )
 			break;
 	}
 
