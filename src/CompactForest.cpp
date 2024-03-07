@@ -1,6 +1,7 @@
 #include "CompactForest.h"
 #include <vector>
 #include <assert.h>
+#include <string.h>
 
 CompactForest* toCompactForest(LoquatCForest* forest)
 {
