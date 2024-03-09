@@ -10,6 +10,16 @@ C++ implementation of random forests
 6. 可保存训练完成的模型至本地 (XML格式，可读性强)，也可读取本地模型进行预测<sup>*</sup>  
 <font size=2>（使用[tinyxml2](https://github.com/leethomason/tinyxml2)库支持xml文件的读写）</font>
 
+## <font size=4>运行 demo</font>
+```shell
+cd randomforests
+make
+# train classification forest
+./rf_train -p 0 -d dataset/classification/pendigits.tra -c demo/config-RF.xml  -o forest.xml
+# train regression forest
+./rf_train -p 1 -d dataset/regression/Housing_Data_Set-R.txt -c demo/config-RF.xml  -o forest.xml
+```
+
 ## <font size=4>使用</font>
 
 从本地数据文件读入数据集进行训练，计算oob-error(oob-mse)，并保存forest到本地。
