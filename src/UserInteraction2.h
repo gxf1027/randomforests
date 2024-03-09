@@ -2,7 +2,7 @@
 #define _USER_INTERACTION_RF_2_H_
 
 #include "RandomCLoquatForests.h"
-#include "RandomRLoquatForests.h" 
+#include "RandomRLoquatForests.h"
 
 /*
 Description: Read configuration from a XML file. 

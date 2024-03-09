@@ -2311,16 +2311,12 @@ int GrowRandomizedRLoquatTreeRecursively(float** data, float* target, const Rand
 	if (loquatTree != NULL)
 		return -2;
 
-	int k, j, depth = 0;
+	int k, j;
 	int index = 0;
-	unsigned int maxNodeNumThisDepth = 0;
-	int maxTreeDepth = RFinfo.maxdepth;
 
 	float ratio = 1.0f;
 	int selnum = (int)(RFinfo.datainfo.samples_num * ratio + 0.5);
-	int total_samples_num = RFinfo.datainfo.samples_num;
-	int variables_num_x = RFinfo.datainfo.variables_num_x;
-	int variables_num_y = RFinfo.datainfo.variables_num_y;
+	const int total_samples_num = RFinfo.datainfo.samples_num;
 
 	loquatTree = new struct LoquatRTreeStruct;
 	assert(loquatTree != NULL);
@@ -2345,7 +2341,7 @@ int GrowRandomizedRLoquatTreeRecursively(float** data, float* target, const Rand
 	for (j = 0; j < selnum; j++)
 	{
 		//index = rand()%total_samples_num;
-		index = (int)((rand_freebsd() * 1.0 / RAND_MAX_RF) * total_samples_num + 0.5);
+		index = (int)((rand_freebsd() * 1.0 / RAND_MAX_RF) * total_samples_num);
 		if (index < 0)
 			index = 0;
 		else if (index >= total_samples_num)
