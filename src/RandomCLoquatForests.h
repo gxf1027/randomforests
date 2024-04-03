@@ -250,9 +250,6 @@ return:			1  -- success
 
 */
 int ClassificationForestGAPProximity(LoquatCForest* forest, float** data, const int index_i, float*& proximities);
-#ifdef OPENMP_SPEEDUP
-int ClassificationForestGAPProximityOMP(LoquatCForest* forest, float** data, const int index_i, float*& proximities, int jobs);
-#endif
 
 /*
 Description:    Compute raw outlier measurement using RF-GAP.

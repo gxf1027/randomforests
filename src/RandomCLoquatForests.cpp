@@ -2350,7 +2350,10 @@ int ClassificationForestGAPProximity(LoquatCForest* forest, float** data, const 
 	proximities = new float[forest->RFinfo.datainfo.samples_num];
 	memset(proximities, 0, sizeof(float) * forest->RFinfo.datainfo.samples_num);
 
+	int *arrivals = NULL;
+
 	const int ntrees = forest->RFinfo.ntrees;
+	const int samples_num = forest->RFinfo.datainfo.samples_num;
 	int oobtree_num = 0;
 	for (int t = 0; t < ntrees; t++)
 	{
@@ -2372,47 +2375,42 @@ int ClassificationForestGAPProximity(LoquatCForest* forest, float** data, const 
 
 		oobtree_num++;
 
-		map<int, int> index_multicity;
 		const struct LoquatCTreeNode* leaf_i = GetArrivedLeafNode(forest, t, data[index_i]);
 		
 		if (leaf_i->samples_index != NULL)
 		{
-			for (int n=0; n<leaf_i->arrival_samples_num; n++)
+			const int arrival_num = leaf_i->arrival_samples_num;
+			const float w = 1.0f/arrival_num;
+			for (int n=0; n<arrival_num; n++)
 			{
-				if (index_multicity.find(leaf_i->samples_index[n]) == index_multicity.end())
-					index_multicity.emplace(leaf_i->samples_index[n], 1);
-				else
-					index_multicity[leaf_i->samples_index[n]]++;
+				proximities[leaf_i->samples_index[n]] += w;
 			}
 		}else
 		{
 			// because forest did not store sample index arrrived at the leaf node, each in bag sample has to be tested
+			int arrival_num = 0;
+			if (NULL == arrivals) 
+				arrivals = new int [samples_num];
+			memset(arrivals, 0, sizeof(int)*samples_num);
 			for (int n = 0; n < tree->inbag_samples_num; n++)
 			{
 				const int j = tree->inbag_samples_index[n];
 				const struct LoquatCTreeNode* leaf_j = GetArrivedLeafNode(forest, t, data[j]);
 				if (leaf_i == leaf_j)
 				{
-					if (index_multicity.find(j) == index_multicity.end())
-						index_multicity.emplace(j, 1);
-					else
-						index_multicity[j]++;
+					arrival_num++;
+					arrivals[j]++;
 				}
 			}
+
+			for(int n=0; n<samples_num; n++)
+			{
+				if (arrivals[n])
+					proximities[n] += arrivals[n]*1.f/arrival_num;
+			}
+			
 		}
 		
-
-		int M = 0;
-		for (map<int, int>::iterator it = index_multicity.begin(); it != index_multicity.end(); it++)
-		{
-			M += it->second;
-		}
-
-		if (0 == M)
-			continue;
-
-		for (map<int, int>::iterator it = index_multicity.begin(); it != index_multicity.end(); it++)
-			proximities[it->first] += it->second*1.0f/M;
 	}
 
 	if (0 == oobtree_num)
@@ -2421,103 +2419,10 @@ int ClassificationForestGAPProximity(LoquatCForest* forest, float** data, const 
 	for (int j = 0; j < forest->RFinfo.datainfo.samples_num; j++)
 		proximities[j] = proximities[j] / oobtree_num;
 
-	return 1;
-}
-
-#ifdef OPENMP_SPEEDUP
-int ClassificationForestGAPProximityOMP(LoquatCForest* forest, float** data, const int index_i, float*& proximities, int jobs)
-{
-	if (NULL != proximities)
-		delete[] proximities;
-
-
-	jobs = jobs > omp_get_max_threads() ? omp_get_max_threads() : jobs;
-	omp_set_num_threads(jobs);
-
-	proximities = new float[forest->RFinfo.datainfo.samples_num];
-	memset(proximities, 0, sizeof(float) * forest->RFinfo.datainfo.samples_num);
-
-	const int ntrees = forest->RFinfo.ntrees;
-	int oobtree_num = 0;
-
-#pragma omp parallel for
-	for (int t = 0; t < ntrees; t++)
-	{
-		//where the i-th sample is oob
-		const struct LoquatCTreeStruct* tree = forest->loquatTrees[t];
-		bool i_oob = false;
-		for (int n = 0; n < tree->outofbag_samples_num; n++)
-		{
-			if (index_i == tree->outofbag_samples_index[n])
-			{
-				i_oob = true;
-				break;
-			}
-		}
-
-
-		if (false == i_oob)
-			continue;
-
-		#pragma omp critical
-		{
-			oobtree_num++;
-		}
-		
-
-		map<int, int> index_multicity;
-		const struct LoquatCTreeNode* leaf_i = GetArrivedLeafNode(forest, t, data[index_i]);
-
-		if (leaf_i->samples_index != NULL)
-		{
-			for (int n = 0; n < leaf_i->arrival_samples_num; n++)
-			{
-				if (index_multicity.find(leaf_i->samples_index[n]) == index_multicity.end())
-					index_multicity.emplace(leaf_i->samples_index[n], 1);
-				else
-					index_multicity[leaf_i->samples_index[n]]++;
-			}
-		}
-		else
-		{
-			// because forest did not store sample index arrrived at the leaf node, each in bag sample has to be tested
-			for (int n = 0; n < tree->inbag_samples_num; n++)
-			{
-				const int j = tree->inbag_samples_index[n];
-				const struct LoquatCTreeNode* leaf_j = GetArrivedLeafNode(forest, t, data[j]);
-				if (leaf_i == leaf_j)
-				{
-					if (index_multicity.find(j) == index_multicity.end())
-						index_multicity.emplace(j, 1);
-					else
-						index_multicity[j]++;
-				}
-			}
-		}
-
-
-		int M = 0;
-		for (map<int, int>::iterator it = index_multicity.begin(); it != index_multicity.end(); it++)
-		{
-			M += it->second;
-		}
-
-		if (0 == M)
-			continue;
-
-		for (map<int, int>::iterator it = index_multicity.begin(); it != index_multicity.end(); it++)
-			proximities[it->first] += it->second * 1.0f / M;
-	}
-
-	if (0 == oobtree_num)
-		return -1;
-
-	for (int j = 0; j < forest->RFinfo.datainfo.samples_num; j++)
-		proximities[j] = proximities[j] / oobtree_num;
+	delete [] arrivals;
 
 	return 1;
 }
-#endif // OPENMP_SPEEDUP
  
 int PredictAnTestSampleOnOneTree(float *data, const int variables_num, struct LoquatCTreeStruct *loquatTree, int &predicted_class_index, float &confidence)
 {
