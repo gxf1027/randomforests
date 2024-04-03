@@ -2,14 +2,14 @@
 GuXF, 9.2011, @NJUST, lastest modification 7.2022
 Contact: gxf1027@126.com.
 Try my best to implement random forests.
-Reference 	[1]. Leo Breiman. Random Forests. Machine Learning 45 (1), 5¨C32, 2001.
+Reference 	[1]. Leo Breiman. Random Forests. Machine Learning 45 (1), 5ï¿½C32, 2001.
 			[2]. Random Forests classifier description (Official site of Leo Breiman's RF): http://stat-www.berkeley.edu/users/breiman/RandomForests/cc_home.htm
-			[3]. Ho, Tin. Random Decision Forest. 3rd International Conference on Document Analysis and Recognition, 1995: 278¨C282.
+			[3]. Ho, Tin. Random Decision Forest. 3rd International Conference on Document Analysis and Recognition, 1995: 278ï¿½C282.
 			[4]. ALGLIB , Implementation of modified random forest algorithm: http://www.alglib.net/dataanalysis/decisionforest.php
 			[5]. Matlab 2010b Help document: "Regression and Classification by Bagging Decision Trees".
 			[6]. Robert E.Banfield. A comparison of decision tree ensemble creation techniques. IEEE trans. on Pattern Analysis and Machine Intelligence, 2007
 			[7]. Antonio Criminisi, Ender Konukoglu, Jamie Shotton. Decision Forests for Classification, Regression, Density Estimation, Manifold Learning and Semi-Supervised Learning. MSR-TR-2011-114. (https://www.microsoft.com/en-us/research/wp-content/uploads/2016/02/decisionForests_MSR_TR_2011_114.pdf)
-			[8]. Geurts, P., Ernst, D. & Wehenkel, L. Extremely randomized trees. Machine Learning 63, 3¨C42, 2006.
+			[8]. Geurts, P., Ernst, D. & Wehenkel, L. Extremely randomized trees. Machine Learning 63, 3ï¿½C42, 2006.
 */
 
 #pragma once
@@ -161,9 +161,9 @@ int ReleaseClassificationForest(LoquatCForest **loquatForest);
 Description:	Predict class label of one testing sample.
 [in]:		1.data:				one dimension array [N], containing one testing sample
 			2.loquatForest:		the trained Random Forests model, which also includes data information and model information
-			3.nType:			1: hard voting decision		 Count(c|data) = ¡Æ(t)delt{leaf_t(data).label==c}
-								0: confidence voting decision   P(c|data) = ¡Æ(t:leaf_t(data).label==c){Pt(c|data)}
-								otherwise: confidence 'soft' decision   P(c|data) = ¡Æ(t){Pt(c|data)}, 
+			3.nType:			1: hard voting decision		 Count(c|data) = ï¿½ï¿½(t)delt{leaf_t(data).label==c}
+								0: confidence voting decision   P(c|data) = ï¿½ï¿½(t:leaf_t(data).label==c){Pt(c|data)}
+								otherwise: confidence 'soft' decision   P(c|data) = ï¿½ï¿½(t){Pt(c|data)}, 
 																		C = argmax(c){P(c|data)}
 																		t=1...T(the number of trees)
 [out]:		1.label_index 	Predicted class label, starting from zero.
@@ -250,9 +250,6 @@ return:			1  -- success
 
 */
 int ClassificationForestGAPProximity(LoquatCForest* forest, float** data, const int index_i, float*& proximities);
-#ifdef OPENMP_SPEEDUP
-int ClassificationForestGAPProximityOMP(LoquatCForest* forest, float** data, const int index_i, float*& proximities, int jobs);
-#endif
 
 /*
 Description:    Compute raw outlier measurement using RF-GAP.
@@ -261,7 +258,7 @@ Method:			"Outliers are generally defined as cases that are removed from the mai
 				 A useful revision is to define outliers relative to their class.
 				 Thus, an outlier in class j is a case whose proximities to all other class j cases are small."
 				 Leo Breiman and Adele Cutler:(https://www.stat.berkeley.edu/~breiman/RandomForests/cc_home.htm#outliers)
-				 raw_score = (samples_num/P_hat(n)-median)/dev, where P_hat(n) = ¡ÆProx^2(n,k),subject to the k that cl(k)=cl(n) and n¡Ùk.
+				 raw_score = (samples_num/P_hat(n)-median)/dev, where P_hat(n) = ï¿½ï¿½Prox^2(n,k),subject to the k that cl(k)=cl(n) and nï¿½ï¿½k.
 
 [in]:            1.loquatForest
 				 2.data
@@ -275,7 +272,7 @@ int RawOutlierMeasure(LoquatCForest* loquatForest, float** data, int* label, flo
 
 /*
 Description:       Compute average margin on oob samples of each tree, using Breiman's method,
-				   mg(X,y) = avkI(hk(X)=y) - max avkI(hk(X)=j), j¡Ùy, y is the true label
+				   mg(X,y) = avkI(hk(X)=y) - max avkI(hk(X)=j), jï¿½ï¿½y, y is the true label
 [in]:  1. data:            train dataset
 	   2. label:           true labels
 	   3. loquatForest:    trained Random Forests Model
