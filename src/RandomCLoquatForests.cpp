@@ -2144,12 +2144,17 @@ int RawVariableImportanceScore2OMP(float** data, int* label, LoquatCForest* loqu
 			}
 
 			DeltMatrix[tr][var] = correct_num - correct_num_premute;
-			mean_var[var] += (correct_num - correct_num_premute) / (float)oobOfTrees[tr];
 		}
 
 		delete [] permuted_order;
 		delete [] tmp_data;
 	}
+
+	for (int v=0; v<variables_num; v++)
+		for (int t = 0; t < Ntrees; t++)
+		{
+			mean_var[v] += DeltMatrix[t][v] / (float)oobOfTrees[t];
+		}
 
 	if (oobFound == false)
 	{
@@ -3097,9 +3102,7 @@ int ComputeVotingOOBMarginOnOneSample(float* data, int label, int index, LoquatC
 	}
 
 	margin = (accumul_class_votes[label] - 1.0f*max_votes)/oob_trees;
-	if (margin < 0) {
-		int xx = 1;
-	}
+	
 	delete[] accumul_class_votes;
 
 	return rv;
