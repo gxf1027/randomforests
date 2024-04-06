@@ -4,7 +4,7 @@ C++ implementation of random forests
 
 1. 适用于分类和回归, 支持回归的多维输出（multi-target regression)
 2. 支持3种随机性 (Original RF / Near Original / [Extra-Trees](https://orbi.uliege.be/bitstream/2268/9357/1/geurts-mlj-advance.pdf))
-3. 可计算proximities，支持离群值计算（raw outlier measure score）
+3. 可计算[Proximities](https://blog.csdn.net/gxf1027/article/details/130701720)，支持离群值计算（raw outlier measure score）
 4. 可计算[特征重要性](https://blog.csdn.net/gxf1027/article/details/131040910)
 5. 支持[OpenMP加速](https://blog.csdn.net/gxf1027/article/details/131440494)
 6. off-the-shelf，即插即用
