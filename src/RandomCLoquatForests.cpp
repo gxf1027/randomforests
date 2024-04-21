@@ -1637,35 +1637,28 @@ struct LoquatCTreeNode* GrowLoquatCTreeNodeRecursively(float** data, int* label,
 		//0607
 		if (treeNode->split_variable_index >= 0)
 		{
-			int st_pos = 0, end_pos = treeNode->arrival_samples_num - 1;
 			const int split_varid = treeNode->split_variable_index;
 			const float split_v = treeNode->split_value;
-			int* samples_index = treeNode->samples_index; 
-			
-			int tmp_id;
-			while (1)
+			int* samples_index = treeNode->samples_index;
+
+			int* samples_index_tmp = new int[arrival_num];
+			for (int n = 0; n < arrival_num; n++)
 			{
-				while (data[samples_index[st_pos]][split_varid] <= split_v && st_pos <= end_pos)
+				if (data[samples_index[n]][split_varid] <= split_v)
 				{
-					st_pos++;
+					samples_index_tmp[leftsubnode_samples_num] = samples_index[n];
+					leftsubnode_samples_num++;
 				}
-				while (data[samples_index[end_pos]][split_varid] > split_v && st_pos <= end_pos)
+				else
 				{
-					end_pos--;
+					samples_index_tmp[arrival_num - 1 - rightsubnode_samples_num] = samples_index[n];
+					rightsubnode_samples_num++;
 				}
-
-				if (st_pos > end_pos)
-					break;
-
-				tmp_id = samples_index[st_pos];
-				samples_index[st_pos] = samples_index[end_pos];
-				samples_index[end_pos] = tmp_id;
-				st_pos++;
-				end_pos--;
 			}
-			leftsubnode_samples_num = st_pos;
-			rightsubnode_samples_num = treeNode->arrival_samples_num - leftsubnode_samples_num;
-			assert(leftsubnode_samples_num >= 0 && leftsubnode_samples_num <= treeNode->arrival_samples_num);
+			assert(leftsubnode_samples_num + rightsubnode_samples_num == arrival_num);
+			assert(arrival_num == treeNode->arrival_samples_num);
+			memcpy(samples_index, samples_index_tmp, sizeof(int) * arrival_num);
+			delete[] samples_index_tmp;
 #if 0
 			for (int nn = 0; nn < treeNode->arrival_samples_num; nn++)
 			{
