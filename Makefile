@@ -4,7 +4,7 @@
 # For testing:
 # $ make -e runtype=test
 CXX:= g++ -std=c++11
-CFLAGS:= -fpermissive -O2
+CFLAGS:= -fpermissive -fopenmp -O2
 SRC:= src/*.cpp src/tinyxml2/*.cpp
 mainfunc:= demo/rf_train_commandline.cpp
 target:= rf_train 
