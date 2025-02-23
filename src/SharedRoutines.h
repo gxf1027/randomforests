@@ -23,12 +23,6 @@ enum RF_TREE_RANDOMNESS
 	TREE_RANDOMNESS_STRONG = 3
 };
 
-typedef enum PROXIMITY_TYPE
-{
-	PROX_ORIGINAL = 1,
-	PROX_GEO_ACC = 2
-}PROXIMITY_TYPE;
-
 /*
 Description: Returns the time (ms) elapsed between two calls to this function
 */
@@ -39,7 +33,7 @@ Description: Generate seed for random number generator,
 			 if succeeded, the seed is the second of the current system time,
 			 if failed, 0 is assigned to the seed.
 */
-unsigned int GenerateSeedFromSysTime();
+void GenerateSeedFromSysTime();
 
 #define RAND_MAX_RF 0x7ffffffd
 int rand_freebsd(void);
@@ -47,7 +41,6 @@ void srand_freebsd(unsigned seed);
 
 void permute(const int n, int* order_permuted);
 
-float** clone_data(float** data, int num, int vars);
 
 #ifdef _DEBUG
 #define KCF_ASSERT(condition) if(!(condition)) \

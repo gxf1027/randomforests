@@ -8,8 +8,7 @@
 #include <cstring>
 #include <cstdlib>
 #include <float.h>
-#include <algorithm>
-#include <unordered_map>
+#include <map>
 using namespace std;
 
 #include "RandomRLoquatForests.h"
@@ -2337,6 +2336,8 @@ int GrowRandomizedRLoquatTreeRecursively(float** data, float* target, const Rand
 	int inbagcount = 0;   // inbagcount 不包括重叠的计数
 	memset(inbagmask, false, total_samples_num * sizeof(bool));
 
+	srand_freebsd(g_random_seed++);
+
 	for (j = 0; j < selnum; j++)
 	{
 		//index = rand()%total_samples_num;
@@ -2421,16 +2422,9 @@ const struct LoquatRTreeNode *GetArrivedLeafNode(LoquatRForest *RF, int tree_ind
 	return NULL;
 }
 
-int TrainRandomForestRegressor(float **data, float *target, RandomRForests_info RFinfo, LoquatRForest *&loquatForest, bool bTargetNormalize /* = true*/, int random_state, int trace)
+int TrainRandomForestRegressor(float **data, float *target, RandomRForests_info RFinfo, LoquatRForest *&loquatForest, bool bTargetNormalize /* = true*/, int trace)
 {
-	if (random_state < 0)
-	{
-		srand_freebsd(GenerateSeedFromSysTime());
-	}
-	else
-	{
-		srand_freebsd((unsigned int)random_state);
-	}
+	GenerateSeedFromSysTime();
 
 	if( loquatForest != NULL )
 		return -2;
@@ -3111,7 +3105,7 @@ int ReleaseRegressionForest(LoquatRForest **loquatForest)
 	return 1;
 }
 
-int RawVariableImportanceScore(float** data, float* target, LoquatRForest* loquatForest, int nType, float* varImportance, bool bNormalize, int random_state, char* filename)
+int RawVariableImportanceScore(float** data, float* target, LoquatRForest* loquatForest, int nType, float* varImportance, bool bNormalize, char* filename)
 {
 	if (!(nType == 0 || nType == 1))
 	{
@@ -3123,15 +3117,6 @@ int RawVariableImportanceScore(float** data, float* target, LoquatRForest* loqua
 		cout << "----------------------------------------------------------------------" << endl;
 		cout << endl;
 		return -1;
-	}
-
-	if (random_state < 0)
-	{
-		srand_freebsd(GenerateSeedFromSysTime());
-	}
-	else
-	{
-		srand_freebsd((unsigned int)random_state);
 	}
 
 	int var, tr, i, j, oobnum, index;
@@ -3295,10 +3280,7 @@ int RegressionForestGAPProximity(LoquatRForest* forest, float** data, const int 
 	proximities = new float[forest->RFinfo.datainfo.samples_num];
 	memset(proximities, 0, sizeof(float) * forest->RFinfo.datainfo.samples_num);
 
-	int* arrivals = NULL;
-
 	const int ntrees = forest->RFinfo.ntrees;
-	const int samples_num = forest->RFinfo.datainfo.samples_num;
 	int oobtree_num = 0;
 	for (int t = 0; t < ntrees; t++)
 	{
@@ -3320,42 +3302,47 @@ int RegressionForestGAPProximity(LoquatRForest* forest, float** data, const int 
 
 		oobtree_num++;
 
+		map<int, int> index_multicity;
 		const struct LoquatRTreeNode* leaf_i = GetArrivedLeafNode(forest, t, data[index_i]);
 		
 		if (leaf_i->samples_index != NULL)
 		{
-			const int arrival_num = leaf_i->arrival_samples_num;
-			const float w = 1.0f / arrival_num;
-			for (int n = 0; n < arrival_num; n++)
+			for (int n=0; n<leaf_i->arrival_samples_num; n++)
 			{
-				proximities[leaf_i->samples_index[n]] += w;
+				if (index_multicity.find(leaf_i->samples_index[n]) == index_multicity.end())
+					index_multicity.emplace(leaf_i->samples_index[n], 1);
+				else
+					index_multicity[leaf_i->samples_index[n]]++;
 			}
 		}
 		else
 		{
 			// because forest did not store sample index arrrived at the leaf node, each in bag sample has to be tested
-			int arrival_num = 0;
-			if (NULL == arrivals)
-				arrivals = new int[samples_num];
-			memset(arrivals, 0, sizeof(int) * samples_num);
 			for (int n = 0; n < tree->inbag_samples_num; n++)
 			{
 				const int j = tree->inbag_samples_index[n];
 				const struct LoquatRTreeNode* leaf_j = GetArrivedLeafNode(forest, t, data[j]);
 				if (leaf_i == leaf_j)
 				{
-					arrival_num++;
-					arrivals[j]++;
+					if (index_multicity.find(j) == index_multicity.end())
+						index_multicity.emplace(j, 1);
+					else
+						index_multicity[j]++;
 				}
-			}
-
-			for (int n = 0; n < samples_num; n++)
-			{
-				if (arrivals[n])
-					proximities[n] += arrivals[n] * 1.f / arrival_num;
 			}
 		}
 
+		int M = 0;
+		for (map<int, int>::iterator it = index_multicity.begin(); it != index_multicity.end(); it++)
+		{
+			M += it->second;
+		}
+
+		if (0 == M)
+			continue;
+
+		for (map<int, int>::iterator it = index_multicity.begin(); it != index_multicity.end(); it++)
+			proximities[it->first] += it->second*1.0f/M;
 	}
 
 	if (0 == oobtree_num)
@@ -3364,67 +3351,5 @@ int RegressionForestGAPProximity(LoquatRForest* forest, float** data, const int 
 	for (int j = 0; j < forest->RFinfo.datainfo.samples_num; j++)
 		proximities[j] = proximities[j] / oobtree_num;
 
-	delete[] arrivals;
-
 	return 1;
-}
-
-LoquatRTreeNode*** createLeafNodeMatrix(LoquatRForest* forest, float** data)
-{
-	const int samples_num = forest->RFinfo.datainfo.samples_num;
-	const int trees_num = forest->RFinfo.ntrees;
-
-	LoquatRTreeNode*** leafNodeMat = new LoquatRTreeNode **[samples_num];
-	for (int n = 0; n < samples_num; n++)
-	{
-		leafNodeMat[n] = new LoquatRTreeNode * [trees_num];
-		for (int t = 0; t < trees_num; t++)
-		{
-			leafNodeMat[n][t] = (LoquatRTreeNode*)GetArrivedLeafNode(forest, t, data[n]);
-			assert(leafNodeMat[n][t] != NULL);
-		}
-	}
-
-	return leafNodeMat;
-}
-
-int RegressionForestOrigProximity2(LoquatRForest* forest, float* data, LoquatRTreeNode*** leafNodeMatrix, float*& proximities)
-{
-
-	const int samples_num = forest->RFinfo.datainfo.samples_num;
-	const int trees_num = forest->RFinfo.ntrees;
-	int rv = 1;
-
-	if (NULL != proximities)
-		delete[] proximities;
-	proximities = new float[samples_num];
-	memset(proximities, 0, sizeof(float) * samples_num);
-
-	LoquatRTreeNode** leaves_i = new LoquatRTreeNode * [trees_num];
-	for (int t = 0; t < trees_num; t++)
-	{
-		leaves_i[t] = (LoquatRTreeNode*)GetArrivedLeafNode(forest, t, data);
-		assert(leaves_i[t] != NULL);
-	}
-
-	for (int n = 0; n < samples_num; n++)
-	{
-		for (int t = 0; t < trees_num; t++)
-		{
-			if (leafNodeMatrix[n][t] == leaves_i[t])
-			{
-				proximities[n] += 1.f;
-			}
-		}
-	}
-
-	for (int n = 0; n < samples_num; n++)
-	{
-		proximities[n] /= trees_num;
-		assert(proximities[n] >= 0 && proximities[n] <= 1.f);
-	}
-
-	delete[] leaves_i;
-
-	return rv;
 }
