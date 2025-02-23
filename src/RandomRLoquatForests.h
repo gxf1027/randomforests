@@ -114,7 +114,7 @@ return:
 NOTE: The user MUSTN'T allocate memory for loquatForest before this function is called, and SHOULD assign NULL to 'loquatForest' structure.
       Memory management is handled by the function automatically.
 */
-int TrainRandomForestRegressor(float **data, float *target, RandomRForests_info RFinfo, LoquatRForest *&loquatForest, bool bTargetNormalize=true, int trace=0);
+int TrainRandomForestRegressor(float **data, float *target, RandomRForests_info RFinfo, LoquatRForest *&loquatForest, bool bTargetNormalize=true, int random_state=0, int trace=0);
 
 /*-----------------------------------------------CLEAR MEMORY-----------------------------------------------*/
 
@@ -153,7 +153,7 @@ Method:         "In every tree grown in the forest, put down the oob cases and c
 								1: z-score
 [out]:			1.varImportance:	normalized raw/z-score importance score.
 */
-int RawVariableImportanceScore(float** data, float* target, LoquatRForest* loquatForest, int nType, float* varImportance, bool bNormalize, char* filename);
+int RawVariableImportanceScore(float** data, float* target, LoquatRForest* loquatForest, int nType, float* varImportance, bool bNormalize,int random_state, char* filename);
 
 /*
 Description:	calculate proximities between the i-th sample and every other sample with algorithm proposed by

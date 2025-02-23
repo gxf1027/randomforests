@@ -1,15 +1,18 @@
 /*
-GuXF, 9.2011, @NJUST, lastest modification 7.2022
+GuXF, 9.2011, @NJUST, lastest modification 2.2025
 Contact: gxf1027@126.com.
 Try my best to implement random forests.
-Reference 	[1]. Leo Breiman. Random Forests. Machine Learning 45 (1), 5每32, 2001.
+Reference	[1]. Leo Breiman. Random Forests. Machine Learning 45 (1), 5每32, 2001.
 			[2]. Random Forests classifier description (Official site of Leo Breiman's RF): http://stat-www.berkeley.edu/users/breiman/RandomForests/cc_home.htm
 			[3]. Ho, Tin. Random Decision Forest. 3rd International Conference on Document Analysis and Recognition, 1995: 278每282.
-			[4]. ALGLIB , Implementation of modified random forest algorithm: http://www.alglib.net/dataanalysis/decisionforest.php
-			[5]. Matlab 2010b Help document: "Regression and Classification by Bagging Decision Trees".
-			[6]. Robert E.Banfield. A comparison of decision tree ensemble creation techniques. IEEE trans. on Pattern Analysis and Machine Intelligence, 2007
-			[7]. Antonio Criminisi, Ender Konukoglu, Jamie Shotton. Decision Forests for Classification, Regression, Density Estimation, Manifold Learning and Semi-Supervised Learning. MSR-TR-2011-114. (https://www.microsoft.com/en-us/research/wp-content/uploads/2016/02/decisionForests_MSR_TR_2011_114.pdf)
-			[8]. Geurts, P., Ernst, D. & Wehenkel, L. Extremely randomized trees. Machine Learning 63, 3每42, 2006.
+			[4]. Robert E.Banfield. A comparison of decision tree ensemble creation techniques. IEEE trans. on Pattern Analysis and Machine Intelligence, 2007.
+			[5]. Antonio Criminisi, Ender Konukoglu, Jamie Shotton. Decision Forests for Classification, Regression, Density Estimation, Manifold Learning and Semi-Supervised Learning. MSR-TR-2011-114. (https://www.microsoft.com/en-us/research/wp-content/uploads/2016/02/decisionForests_MSR_TR_2011_114.pdf)
+			[6]. Geurts, P., Ernst, D. & Wehenkel, L. Extremely randomized trees. Machine Learning 63, 3每42, 2006.
+			[7]. Jake S.Rhodes, Adele Cutler, Kevin R. Moon. Geometry- and Accuracy-Preserving Random Forest Proximities. TPAMI,2023.
+Implementation:
+			[1]. ALGLIB , Implementation of modified random forest algorithm: http://www.alglib.net/dataanalysis/decisionforest.php
+			[2]. Matlab 2010b Help document: "Regression and Classification by Bagging Decision Trees".
+			[3]. sklearn.ensemble.RandomForestClassifier: https://scikit-learn.org/stable/modules/ensemble.html#forest
 */
 
 #pragma once
@@ -19,7 +22,7 @@ Reference 	[1]. Leo Breiman. Random Forests. Machine Learning 45 (1), 5每32, 200
 #include <string>
 #include "SharedRoutines.h"
 
-// #define OPENMP_SPEEDUP
+#define OPENMP_SPEEDUP
 
 /*-----------------------------------------------STRUCTURE DIFINITION-----------------------------------------------*/
 typedef struct Dataset_info_C
@@ -106,7 +109,8 @@ Description:	Train a Random Classification Forests model
 		2.label:   the labels of the training data
 		3.RFinfo:  the struct contains necessary information of Random Classification Forests, namely the number of trees, and the number 
 		   		 of variable split at each node.
-		4.trace:   if >0, print oob error rate every 'trace' trees during training
+		4.random_state: a parameter to control the random number generator used, if 'random_state'<0, built-in random number generator is used.
+		5.trace:   if >0, print oob error rate every 'trace' trees during training
 
 [out]	1.loquatForest: the trained RF model, containing N trees.
 
@@ -114,14 +118,14 @@ return:
 		1. -3: The data_info structure is assigned with incorrect values.
 		2. -2: 'loquatForest' may be allocated with memory or isn't assigned with NULL.
 		3. -1: Error happened in function 'GrowRandomizedDLoquatTree'.
-		4.  1: A RFs model is build successfully.
+		4.  1: A RFs model is build successfully.		
 
 NOTE: The user MUSTN'T allocate memory for loquatForest before this function is called, and SHOULD assign NULL to 'loquatForest' structure.
 	  Memory management is handled by the function automatically.
 */
-int TrainRandomForestClassifier(float** data, int* label, RandomCForests_info RFinfo, LoquatCForest*& loquatForest, int trace = 0);
+int TrainRandomForestClassifier(float** data, int* label, RandomCForests_info RFinfo, LoquatCForest*& loquatForest, int random_state=0, int trace = 0);
 #ifdef OPENMP_SPEEDUP
-int TrainRandomForestClassifierOMP(float** data, int* label, RandomCForests_info RFinfo, LoquatCForest*& loquatForest, int jobs, int trace);
+int TrainRandomForestClassifierOMP(float** data, int* label, RandomCForests_info RFinfo, LoquatCForest*& loquatForest, int random_state = 0, int jobs=4, int trace=0);
 #endif
 
 /*
@@ -136,7 +140,7 @@ return:
 		5.  1: A RFs model is build successfully.
 */
 int TrainRandomForestClassifierWithStopCriterion(float **data, int *label, RandomCForests_info RFinfo, LoquatCForest *&loquatForest, 
-											  PlantStopCriterion stopCriterion, int &nPlantedTreeNum, float *&error_rate_sequent);
+											  PlantStopCriterion stopCriterion, int random_state, int &nPlantedTreeNum, float *&error_rate_sequent);
 
 /*
 Description:	Output detail of Random Forest model
@@ -235,21 +239,24 @@ Method:         "In every tree grown in the forest, put down the oob cases and c
 								1: z-score
 [out]:			1.varImportance:	normalized raw/z-score importance score.
 */
-int RawVariableImportanceScore2(float** data, int* label, LoquatCForest* loquatForest, int nType, float* varImportance, bool bNormalize, char* filename = 0);
+int RawVariableImportanceScore2(float** data, int* label, LoquatCForest* loquatForest, int nType, float* varImportance, bool bNormalize, int random_state=0, char* filename = 0);
 #ifdef OPENMP_SPEEDUP
-int RawVariableImportanceScore2OMP(float** data, int* label, LoquatCForest* loquatForest, int nType, float* varImportance, bool bNormalize, char* filename, int jobs);
+int RawVariableImportanceScore2OMP(float** data, int* label, LoquatCForest* loquatForest, int nType, float* varImportance, bool bNormalize, int random_state, char* filename, int jobs);
 #endif
 
 /*
-Description:	calculate proximities between the i-th sample and every other sample with algorithm proposed by
-				'Jake S.Rhodes, Adele Cutler, Kevin R. Moon. Geometry- and Accuracy-Preserving Random Forest Proximities. TPAMI,2023.'
-[in]
-[out]			proximities:  a pointer to the 1D array, with the dimension samples_num*1.
+Description:	Calculate proximities between the i-th sample and every other sample with algorithm proposed by
+[in]			1. forest:		a random classification forest
+				2. data:		with which the 'forest' has been trained
+				3. index_i:		the sample index in 'data'. Proximities are calculated between data[index_i] and every other sample in dataset
+				4. type:		type of proximity, PROXIMITY_TYPE::PROX_ORIGINAL(original RF proximity) or PROXIMITY_TYPE::PROX_GEO_ACC(TPAMI 2023 GAP)
+[out]			proximities:	a pointer to the 1D array, with the dimension samples_num*1.
 return:			1  -- success
 				-1 -- i-th sample is not a out-of-bag sample for every tree in forest. Possible when the number of trees is small.
 
+Reference:		'Jake S.Rhodes, Adele Cutler, Kevin R. Moon. Geometry- and Accuracy-Preserving Random Forest Proximities. TPAMI,2023.'
 */
-int ClassificationForestGAPProximity(LoquatCForest* forest, float** data, const int index_i, float*& proximities);
+int ClassificationForestProximity(LoquatCForest* forest, float** data, const int index_i, PROXIMITY_TYPE type, float*& proximities);
 
 /*
 Description:    Compute raw outlier measurement using RF-GAP.
@@ -273,8 +280,8 @@ int RawOutlierMeasure(LoquatCForest* loquatForest, float** data, int* label, flo
 /*
 Description:       Compute average margin on oob samples of each tree, using Breiman's method,
 				   mg(X,y) = avkI(hk(X)=y) - max avkI(hk(X)=j), j≧y, y is the true label
-[in]:  1. data:            train dataset
-	   2. label:           true labels
+[in]:  1. data:            dataset, the same with training dataset
+	   2. label:           true labels, the same with training dataset
 	   3. loquatForest:    trained Random Forests Model
 [out]  1. margin:          margin computed
 

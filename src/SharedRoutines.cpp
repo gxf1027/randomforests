@@ -5,8 +5,6 @@ using namespace std;
 
 #include "SharedRoutines.h"
 
-unsigned int g_random_seed=0;
-
 float timeIt(int reset) 
 {
 	static time_t startTime, endTime;
@@ -34,7 +32,7 @@ float timeIt(int reset)
 	}
 }
 
-void GenerateSeedFromSysTime()
+unsigned int GenerateSeedFromSysTime()
 {
 	time_t ltime;
 	//struct tm newtime;
@@ -48,16 +46,16 @@ void GenerateSeedFromSysTime()
 		cout<<"-----------------  ERROR:'GenerateSeedFromSysTime' -------------------"<<endl;
 		cout<<"Cannot get system time, random seed is initialized with value '0'"<<endl;
 		cout<<"----------------------------------------------------------------------"<<endl;
-		g_random_seed = 0;
+		return 0;
 	}
 	else
 	{
 		//g_random_seed = newtime->tm_sec;
-		g_random_seed = time(0);
+		return time(0);
 		//cout<<"Inital seed: "<<g_random_seed<<endl;
 	}
 
-	return;
+	return 0;
 }
 
 /*
@@ -218,3 +216,16 @@ void kcfFree(KCFMemPool* pool, void** ptr, unsigned int size)
 	pool->used -= size;
 }
 */
+
+
+float** clone_data(float** data, int num, int vars)
+{
+	float** data_clone = new float* [num];
+	for (int n = 0; n < num; n++)
+	{
+		data_clone[n] = new float[vars];
+		memcpy(data_clone[n], data[n], sizeof(float) * vars);
+	}
+
+	return data_clone;
+}

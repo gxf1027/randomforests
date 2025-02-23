@@ -15,6 +15,7 @@ Contact: gxf1027@126.com
 #include <algorithm>
 #include <iomanip>
 #include <map>
+#include <unordered_map>
 
 using namespace std;
 
@@ -27,14 +28,13 @@ using namespace std;
 
 
 #define FLOAT_MAX							3.0e38f
-#define FLOAT_MIN							1.0e-38f
 #define VERY_SMALL_VALUE					1e-10f
 #define INTERVAL_STEPS_NUM					50
 #define STOP_CRITERION_MIN_GINI_IMPURITY	0.01    // 这个参数变小(0.1->0.01)可以显著提高分类准确率
 #define DEFAULT_MAX_TREE_DEPTH_C			40
 #define DEFAULT_MIN_SAMPLES_C				5
+#define GROW_DEEPER_FOR_PROXIMITY				8124
 //#define new  new(_CLIENT_BLOCK, __FILE__, __LINE__)
-
 
 struct _GrowNodeInput
 {
@@ -128,6 +128,8 @@ return:         the pointer to the leaf node. So all of the attributes that leaf
 */
 const struct LoquatCTreeNode* GetArrivedLeafNode(const LoquatCForest* RF, const int tree_index, float* data);
 
+int HarvestOneLeafNode(struct LoquatCTreeNode** treeNode);
+
 void UseDefaultSettingsForRFs(RandomCForests_info &RF_info)
 {
 	RF_info.ntrees = 200;
@@ -202,27 +204,49 @@ int CheckClassificationForestParameters(RandomCForests_info &RF_info)
 	return rv;
 }
 
-int chekcDataSetLabel(int *label, int sample_num, int class_num)
+int chekcDataSetLabel(int* label, int sample_num, int class_num)
 {
-	
+	int* count = new int[class_num];
+	memset(count, 0, sizeof(int) * class_num);
+
 	for (int k = 0; k < sample_num; k++)
 	{
-		if (label[k] >= class_num)
+		if (label[k] >= class_num || label[k] < 0)
 		{
 			cout << ">>>>Values of label index must be no more than classes_num-1," << endl;
 			cout << ">>>>That is, if the classes_num=N,the label index should be 0,1,...,N-1" << endl;
+			delete[]count;
 			return -1;
 		}
+		count[label[k]]++;
 	}
-	
+
+	for (int c = 0; c < class_num; c++)
+	{
+		if (count[c] == 0)
+		{
+			cout << ">>>>NO sample has the label index " << c << "." << endl;
+			delete[] count;
+			return -2;
+		}
+	}
+
+	delete[] count;
 	return 1;
 }
 
 
 int TrainRandomForestClassifierWithStopCriterion(float** data, int* label, RandomCForests_info RFinfo, LoquatCForest*& loquatForest,
-	PlantStopCriterion stopCriterion, int& nPlantedTreeNum, float*& error_rate_sequent)
+										PlantStopCriterion stopCriterion, int random_state, int& nPlantedTreeNum, float*& error_rate_sequent)
 {
-	GenerateSeedFromSysTime();
+	if (random_state < 0)
+	{
+		srand_freebsd(GenerateSeedFromSysTime());
+	}
+	else
+	{
+		srand_freebsd((unsigned int)random_state);
+	}
 
 	if (loquatForest != NULL)
 		return -2;
@@ -327,25 +351,6 @@ int TrainRandomForestClassifierWithStopCriterion(float** data, int* label, Rando
 				return -4;
 			}
 
-			/*if( indx >= samples_num || predicted_class_index >= classes_num )
-			{
-				for ( int k=0; k<samples_num; k++ )
-				{
-					delete [] data_class_count[k];
-					data_class_count[k] = NULL;
-				}
-				delete [] data_class_count;
-				data_class_count = NULL;
-				delete [] predicted_labels;
-				predicted_labels = NULL;
-				delete [] error_sequent;
-				error_sequent = NULL;
-				delete [] Acc;
-				delete [] Smooth;
-				delete [] MaxSmValue;
-				return -4;
-			}*/
-
 			data_class_count[indx][predicted_class_index] += 1;
 			if (predicted_labels[indx] == -1)
 			{
@@ -427,9 +432,17 @@ int TrainRandomForestClassifierWithStopCriterion(float** data, int* label, Rando
 	return 1;
 }
 
-int TrainRandomForestClassifier(float **data, int *label, RandomCForests_info RFinfo, LoquatCForest *&loquatForest, int trace)
+int TrainRandomForestClassifier(float **data, int *label, RandomCForests_info RFinfo, LoquatCForest *&loquatForest, int random_state, int trace)
 {
-	GenerateSeedFromSysTime();
+	if (random_state < 0)
+	{
+		srand_freebsd(GenerateSeedFromSysTime());
+	}
+	else
+	{
+		srand_freebsd((unsigned int)random_state);
+	}
+	
 
 	if( loquatForest != NULL )
 		return -2;
@@ -462,38 +475,37 @@ int TrainRandomForestClassifier(float **data, int *label, RandomCForests_info RF
 		loquatForest->loquatTrees[i] = NULL;
 	}
 
-	// ofstream msg("msg.txt");
 	for ( int i=0; i<Ntrees; i++ )
 	{
 		rv = GrowRandomizedCLoquatTreeRecursively( data, label, RFinfo, loquatForest->loquatTrees[i]);
 		if( 1 != rv )	
 			return -1;
-		//cout<<"Tree "<<i+1<<"is grown."<<endl;
+		
 		if (trace > 0 && (i + 1) % trace == 0)
 		{
 			float ooberror = 0;
 			loquatForest->RFinfo.ntrees = i + 1;
 			OOBErrorEstimate(data, label, loquatForest, ooberror, 1);
-			// float mg = 0.f;
-			// ComputeVotingOOBMargin(data, label, loquatForest, mg);
 			cout << "Tree: " << i + 1 << "\tOOB error rate: " << ooberror * 100 << "%" << endl;
-			// cout << "Tree: " << i + 1 << "\tOOB error rate: " << ooberror * 100 << "%, margin: " << mg << endl;
-			// msg << ooberror << "," << mg << endl;
 			loquatForest->RFinfo.ntrees = Ntrees;
 		}
 		
 	}
-	// msg.close();
-	//////////////////////////test//////////////////////////
-	//cout << "split_count: " << split_count << " tm: " << tm1 / split_count << endl;
-
+	
 	return 1;
 }
 
 #ifdef OPENMP_SPEEDUP
-int TrainRandomForestClassifierOMP(float** data, int* label, RandomCForests_info RFinfo, LoquatCForest*& loquatForest, int jobs, int trace)
+int TrainRandomForestClassifierOMP(float** data, int* label, RandomCForests_info RFinfo, LoquatCForest*& loquatForest, int random_state, int jobs, int trace)
 {
-	GenerateSeedFromSysTime();
+	if (random_state < 0)
+	{
+		srand_freebsd(GenerateSeedFromSysTime());
+	}
+	else
+	{
+		srand_freebsd((unsigned int)random_state);
+	}
 
 	if (loquatForest != NULL)
 		return -2;
@@ -618,7 +630,7 @@ void MaximumConfienceClassLabelTop2(const float* const class_distribution, const
 Description: Extremely random method is used to choose the split value without using Information Gain.
              This function is called by 'SplitOnDLoquatNode' only when the candidate variables to split are identical.
 */
-int ExtremeRandomlySplitOnDLoquatNode(float **data, int samples_num, int variables_num, const int *innode_samples_index, int innode_num, int &split_variable_index, float &split_value)
+int ExtremeRandomlySplitOnDLoquatNode(float **data, int variables_num, const int *innode_samples_index, int innode_num, int &split_variable_index, float &split_value)
 {
 	int j, index;
 	float maxv=0.f, minv=0.f;
@@ -737,7 +749,7 @@ int SplitOnDLoquatNodeWithEveryAttempt(float** data, int* label, const int sampl
 
 	if (bfindSplitV == false) // 如果所有被选择分量的maxv==minv
 	{
-		if (-1 == ExtremeRandomlySplitOnDLoquatNode(data, samples_num, variables_num, innode_samples_index, innode_num, split_variable_index, split_value))
+		if (-1 == ExtremeRandomlySplitOnDLoquatNode(data, variables_num, innode_samples_index, innode_num, split_variable_index, split_value))
 		{
 			split_variable_index = -1;
 			split_value = 0;
@@ -770,12 +782,11 @@ Description:	Split the data at each node in the tree.
 
 [in]  1.data:				 two dimension array [N][M], containing the total training data with their variable
 	  2.label:				 the labels of training data
-	  3.samples_num:		 the total number of samples
-	  4.variables_num:		 the total number of variables
-	  5.classes_num:		 the number of classed
-	  6.innode_samples_index:the index array of the original training data, indicating the training samples arrival at the node
-	  7.innode_num:          the number of training samples at the node
-	  8.Mvariable:           the number of candidate variables choosing to split the node
+	  3.variables_num:		 the total number of variables
+	  4.classes_num:		 the number of classed
+	  5.innode_samples_index:the index array of the original training data, indicating the training samples arrival at the node
+	  6.innode_num:          the number of training samples at the node
+	  7.Mvariable:           the number of candidate variables choosing to split the node
 
 [out] 1. split_variable_index:the index of variable chosen to split at the node
 	  2.the value to split at the node
@@ -785,7 +796,7 @@ return:
 	   0: split the batch of arrival samples using extremely random selection method.
 	   1: split successfully
 */
-int SplitOnDLoquatNode(float** data, int* label, const int samples_num, const int variables_num, const int classes_num,
+int SplitOnDLoquatNode(float** data, int* label, const int variables_num, const int classes_num,
 				const int* innode_samples_index, const int innode_num, const int Mvariable, int& split_variable_index, float& split_value)
 {
 
@@ -902,7 +913,7 @@ int SplitOnDLoquatNode(float** data, int* label, const int samples_num, const in
 
 	if (bfindSplitV == false) // 如果所有被选择分量的maxv==minv
 	{
-		if (-1 == ExtremeRandomlySplitOnDLoquatNode(data, samples_num, variables_num, innode_samples_index, innode_num, split_variable_index, split_value))
+		if (-1 == ExtremeRandomlySplitOnDLoquatNode(data, variables_num, innode_samples_index, innode_num, split_variable_index, split_value))
 		{
 			/*int r = rand() % Mvariable;
 			split_variable_index = selSplitIndex[r];
@@ -1088,7 +1099,7 @@ int SplitOnDLoquatNodeCompletelySearch(float** data, int* label, int samples_num
 	}
 	if (bfindSplitV == false)
 	{
-		if (-1 == ExtremeRandomlySplitOnDLoquatNode(data, samples_num, variables_num, innode_samples_index, innode_num, split_variable_index, split_value))
+		if (-1 == ExtremeRandomlySplitOnDLoquatNode(data, variables_num, innode_samples_index, innode_num, split_variable_index, split_value))
 		{
 			split_variable_index = -1;
 			split_value = 0;
@@ -1110,7 +1121,7 @@ int SplitOnDLoquatNodeCompletelySearch(float** data, int* label, int samples_num
 }
 
 // 修改了申请内存方式，以及其他细节（见for循环中的ptr）
-int SplitOnDLoquatNodeCompletelySearch2(float** data, int* label, int samples_num, int variables_num, int classes_num,
+int SplitOnDLoquatNodeCompletelySearch2(float** data, int* label, int variables_num, int classes_num,
     const int* innode_samples_index, int innode_num, int Mvariable, int& split_variable_index, float& split_value)
 {
     int i, j, k, index, rv = 1;
@@ -1144,7 +1155,6 @@ int SplitOnDLoquatNodeCompletelySearch2(float** data, int* label, int samples_nu
     var_label* vls = (var_label *)(memblock+classes_num*innode_num*sizeof(float));
     bool bfindSplitV = false;
     split_variable_index = -1;
-
     for (j = 0; j < Mvariable; j++)
     {
 
@@ -1152,7 +1162,6 @@ int SplitOnDLoquatNodeCompletelySearch2(float** data, int* label, int samples_nu
         const int selSplitIndex = arrayindx[iid];
         arrayindx.erase(arrayindx.begin() + iid);
         assert(selSplitIndex >= 0 && selSplitIndex < variables_num);
-
         for (k = 0; k < classes_num; k++)
         {
             memset(labelsCum[k], 0, sizeof(float) * innode_num);
@@ -1233,12 +1242,7 @@ int SplitOnDLoquatNodeCompletelySearch2(float** data, int* label, int samples_nu
                 tmpv = ptr[innode_num - 1] - ptr[k - 1];
                 rgini += tmpv * tmpv;
             }
-            /*
-            lgini = (1.0 - lgini / (1.0 * lcount * lcount)) * 0.5;
-            rgini = (1.0 - rgini / (1.0 * rcount * rcount)) * 0.5;
-            // gini = lcount/(float)innode_num*lgini + rcount/(float)innode_num*rgini;
-            gini = (lcount * lgini + rcount * rgini) / innode_num; //+ (innode_num<500 ? 0 : 0.05) * (lcount * 1.0 / innode_num - 0.5) * (lcount * 1.0 / innode_num - 0.5);
-            */
+            
             gini = lgini / lcount + rgini / rcount;
             if (gini > gini_best)
             {
@@ -1252,7 +1256,7 @@ int SplitOnDLoquatNodeCompletelySearch2(float** data, int* label, int samples_nu
     }
     if (bfindSplitV == false)
     {
-        if (-1 == ExtremeRandomlySplitOnDLoquatNode(data, samples_num, variables_num, innode_samples_index, innode_num, split_variable_index, split_value))
+        if (-1 == ExtremeRandomlySplitOnDLoquatNode(data, variables_num, innode_samples_index, innode_num, split_variable_index, split_value))
         {
             split_variable_index = -1;
             split_value = 0;
@@ -1275,7 +1279,7 @@ int SplitOnDLoquatNodeCompletelySearch2(float** data, int* label, int samples_nu
 * Implementation of the following work: 
 * P. Geurts, D. Ernst, and L. Wehenkel. Extremely randomized trees. Machine Learning, 63(1):3–42, 2006a.
 */
-int SplitOnDLoquateNodeExtremeRandomly(float** data, int* label, int samples_num, int variables_num, int classes_num,
+int SplitOnDLoquateNodeExtremeRandomly(float** data, int* label, int variables_num, int classes_num,
 	const int* innode_samples_index, int innode_num, int Mvariable, int& split_variable_index, float& split_value)
 {
 	int i, j, index, rv = 1;
@@ -1366,7 +1370,7 @@ int SplitOnDLoquateNodeExtremeRandomly(float** data, int* label, int samples_num
 
 	if (bfindSplitV == false)
 	{
-		if (-1 == ExtremeRandomlySplitOnDLoquatNode(data, samples_num, variables_num, innode_samples_index, innode_num, split_variable_index, split_value))
+		if (-1 == ExtremeRandomlySplitOnDLoquatNode(data, variables_num, innode_samples_index, innode_num, split_variable_index, split_value))
 		{
 			split_variable_index = -1;
 			split_value = 0;
@@ -1378,6 +1382,139 @@ int SplitOnDLoquateNodeExtremeRandomly(float** data, int* label, int samples_num
 
 	delete[] lsubNodeClassnum;
 	delete[] rsubNodeClassnum;
+	return rv;
+}
+
+
+typedef struct value_index {
+	float value;
+	int index;
+}value_index;
+int _cmp_val(const void* a, const void* b)
+{
+	return ((value_index*)a)->value > ((value_index*)b)->value ? 1 : -1;
+}
+
+// data SHOULD be normalized or standardization in advance
+int SplitNodeUnsupervisedly(float** data, int variables_num, const int* innode_samples_index, int innode_num, int Mvariable, int& split_variable_index, float& split_value)
+{
+	int i, j, index, rv = 1;
+	int* selSplitIndex = new int[Mvariable];
+
+	float splitv = 0;
+	double gini_like, mingini = 1e38;
+	int var_index;
+
+	vector<int> arrayindx;
+	for (i = 0; i < variables_num; i++)
+		arrayindx.push_back(i);
+	for (i = 0; i < Mvariable; i++)
+	{
+		int iid = rand_freebsd() % (variables_num - i);
+		selSplitIndex[i] = arrayindx[iid];
+		arrayindx.erase(arrayindx.begin() + iid);
+	}
+
+	int lcount = 0, rcount = 0;
+	double lMeanSqr, rMeanSqr;
+	double lVar, rVar;
+
+	double** targetCum = new double* [variables_num];
+	for (int y = 0; y < variables_num; y++)
+	{
+		targetCum[y] = new double[innode_num];
+		memset(targetCum[y], 0, sizeof(double) * innode_num);
+	}
+	double* targetSqrCum = new double[innode_num];
+
+	value_index* vts = new value_index[innode_num];
+
+	bool bfindSplitV = false;
+	split_variable_index = -1;
+	for (j = 0; j < Mvariable; j++)
+	{
+		var_index = selSplitIndex[j];
+
+		for (int k = 0; k < innode_num; k++)
+		{
+			index = innode_samples_index[k];
+			vts[k].value = data[index][var_index];
+			vts[k].index = index;
+		}
+
+		qsort(vts, innode_num, sizeof(value_index), _cmp_val);
+
+		memset(targetSqrCum, 0, sizeof(double) * innode_num);
+		for (int y = 0; y < variables_num; y++)
+		{
+			//const double t = target[vts[0].index * variables_num_y + y];
+			const double t = data[vts[0].index][y];
+			targetCum[y][0] = t;
+			targetSqrCum[0] += t * t;
+		}
+		for (int k = 1; k < innode_num; k++)
+		{
+			targetSqrCum[k] = targetSqrCum[k - 1];
+			for (int y = 0; y < variables_num; y++)
+			{
+				//const double t = target[vts[k].index * variables_num_y + y];
+				const double t = data[vts[k].index][y];
+				targetCum[y][k] = targetCum[y][k - 1] + t;
+				targetSqrCum[k] += t * t;
+			}
+		}
+
+		for (int k = 1; k < innode_num; k++)
+		{
+			if (abs(vts[k - 1].value - vts[k].value) < FLT_EPSILON)
+			{
+				continue;
+			}
+
+			splitv = 0.5f * (vts[k - 1].value + vts[k].value);
+			lcount = k;
+			rcount = innode_num - k;
+
+			lVar = targetSqrCum[k - 1] / lcount;
+			rVar = (targetSqrCum[innode_num - 1] - targetSqrCum[k - 1]) / rcount;
+			lMeanSqr = rMeanSqr = 0.0;
+			double mean_y;
+			for (int y = 0; y < variables_num; y++)
+			{
+				mean_y = targetCum[y][k - 1] / lcount;
+				lMeanSqr += mean_y * mean_y;
+				mean_y = (targetCum[y][innode_num - 1] - targetCum[y][k - 1]) / rcount;
+				rMeanSqr += mean_y * mean_y;
+			}
+			
+			//assert(lVar - lMeanSqr >= 0 && rVar - rMeanSqr >= 0);
+			gini_like = (lcount * (lVar - lMeanSqr) + rcount * (rVar - rMeanSqr)) / innode_num;
+
+			if (gini_like < mingini)
+			{
+				bfindSplitV = true;
+				mingini = gini_like;
+				split_variable_index = var_index;
+				split_value = splitv;
+			}
+		}
+
+	}
+
+	if (false == bfindSplitV)
+	{
+		split_variable_index = -1;
+		split_value = 0;
+		rv = -1;
+	}
+
+	delete[] selSplitIndex;
+	delete[] vts;
+	for (int y = 0; y < variables_num; y++)
+		delete[] targetCum[y];
+	delete[] targetCum;
+	delete[] targetSqrCum;
+
 	return rv;
 }
 
@@ -1497,7 +1634,7 @@ int SplitOnDLoquateNodeExtremeRandomly(float** data, int* label, int samples_num
 //	return 1;
 //}
 
-int AnalyzeTrainingSamplesArrivedAtOneNode(const int* label, const int samples_num, const int classes_num, const int* innode_samples_index, const int innode_num, float& impurity, float*& class_distribution)
+int AnalyzeTrainingSamplesArrivedAtOneNode(const int* label, const int classes_num, const int* innode_samples_index, const int innode_num, float& impurity, float*& class_distribution)
 {
 	if (innode_num == 0)
 	{
@@ -1525,6 +1662,7 @@ int AnalyzeTrainingSamplesArrivedAtOneNode(const int* label, const int samples_n
 	return 1;
 }
 
+
 struct LoquatCTreeNode* GrowLoquatCTreeNodeRecursively(float** data, int* label, int* sample_arrival_index, const int arrival_num, const GrowNodeInput* pInputParam, struct LoquatCTreeStruct* loquatTree)
 {
 	int total_samples_num = pInputParam->total_samples_num;
@@ -1537,13 +1675,12 @@ struct LoquatCTreeNode* GrowLoquatCTreeNodeRecursively(float** data, int* label,
 	treeNode->pSubNode = NULL;
 	treeNode->samples_index = NULL;
 
-	//treeNode->depth = pInputParam->thisnode_depth; //!!
 	treeNode->depth = pInputParam->parent_depth + 1;
 
 	if (treeNode->depth == 0)
 		treeNode->nodetype = TreeNodeTpye::enRootNode;
 	else
-		treeNode->nodetype = TreeNodeTpye::enLinkNode;//!!暂时在创建时是linknode
+		treeNode->nodetype = TreeNodeTpye::enLinkNode;
 
 	treeNode->subnodes_num = 2;
 	treeNode->pParentNode = NULL;
@@ -1566,14 +1703,13 @@ struct LoquatCTreeNode* GrowLoquatCTreeNodeRecursively(float** data, int* label,
 	}*/
 
 	// 以上用到达样本生成一个新节点，以下开始判断这个节点是否可以再分裂
-	AnalyzeTrainingSamplesArrivedAtOneNode(label, total_samples_num, total_classes_num, treeNode->samples_index, treeNode->arrival_samples_num,
+	AnalyzeTrainingSamplesArrivedAtOneNode(label, total_classes_num, treeNode->samples_index, treeNode->arrival_samples_num,
 		treeNode->train_impurity, treeNode->class_distribution);
 
 	bool isFewSamples = (treeNode->arrival_samples_num <= pInputParam->leafMinSamples);
 	bool isLowImpurity = (treeNode->train_impurity < STOP_CRITERION_MIN_GINI_IMPURITY);
 	bool isMaxDepth = (treeNode->depth == pInputParam->maxDepth - 1);  // depth is the index of the level, which is from 0.
-	//bool rule3 = (1 == isConstantLabels( label, treeNode->samples_index, treeNode->arrival_samples_num));
-	// 2021-03-24
+	
 	bool isEqualConf = false;
 	float max_conf, second_max_conf;
 	int second_label;
@@ -1583,7 +1719,11 @@ struct LoquatCTreeNode* GrowLoquatCTreeNodeRecursively(float** data, int* label,
 		isEqualConf = max_conf - second_max_conf <= FLT_MIN ? true : false;
 	}
 
-	if ((isLowImpurity || isMaxDepth) || (isFewSamples && !isEqualConf))
+	bool bGrowToGreaterDepth = pInputParam->maxDepth == GROW_DEEPER_FOR_PROXIMITY && 
+						isLowImpurity && arrival_num > 50;
+	//bGrowToGreaterDepth = false;
+
+	if (((isLowImpurity || isMaxDepth) || (isFewSamples && !isEqualConf)) && !bGrowToGreaterDepth)
 	{
 		treeNode->nodetype = TreeNodeTpye::enLeafNode;
 		treeNode->pSubNode[0] = NULL;
@@ -1599,37 +1739,39 @@ struct LoquatCTreeNode* GrowLoquatCTreeNodeRecursively(float** data, int* label,
 		treeNode->leaf_node_label = -1;
 		treeNode->leaf_confidence = 0.f;
 
-		//////////////////////////test//////////////////////////
-		// split_count++;
-		// time_t startTime = clock();
-		switch (pInputParam->randomness)
+		if (bGrowToGreaterDepth)
 		{
-		case TREE_RANDOMNESS_WEAK:
-			SplitOnDLoquatNodeCompletelySearch2(data, label, total_samples_num, total_variables_num, total_classes_num,
-				treeNode->samples_index, treeNode->arrival_samples_num,
+			SplitNodeUnsupervisedly(data, total_variables_num, treeNode->samples_index, treeNode->arrival_samples_num,
 				pInputParam->mvariables, treeNode->split_variable_index, treeNode->split_value);
-			break;
-		case TREE_RANDOMNESS_MODERATE:
-			SplitOnDLoquatNode(data, label, total_samples_num, total_variables_num, total_classes_num,
-				treeNode->samples_index, treeNode->arrival_samples_num,
-				pInputParam->mvariables, treeNode->split_variable_index, treeNode->split_value);
-			break;
-		case TREE_RANDOMNESS_STRONG:
-			SplitOnDLoquateNodeExtremeRandomly(data, label, total_samples_num, total_variables_num, total_classes_num,
-				treeNode->samples_index, treeNode->arrival_samples_num,
-				pInputParam->mvariables, treeNode->split_variable_index, treeNode->split_value);
-			break;
-
-
-		default:
-			SplitOnDLoquatNode(data, label, total_samples_num, total_variables_num, total_classes_num,
-				treeNode->samples_index, treeNode->arrival_samples_num,
-				pInputParam->mvariables, treeNode->split_variable_index, treeNode->split_value);
-			break;
+			//cout<<"go deeper: "<<treeNode->arrival_samples_num<<endl;
 		}
+		else {
+			switch (pInputParam->randomness)
+			{
+			case TREE_RANDOMNESS_WEAK:
+				SplitOnDLoquatNodeCompletelySearch2(data, label, total_variables_num, total_classes_num,
+					treeNode->samples_index, treeNode->arrival_samples_num,
+					pInputParam->mvariables, treeNode->split_variable_index, treeNode->split_value);
+				break;
+			case TREE_RANDOMNESS_MODERATE:
+				SplitOnDLoquatNode(data, label, total_variables_num, total_classes_num,
+					treeNode->samples_index, treeNode->arrival_samples_num,
+					pInputParam->mvariables, treeNode->split_variable_index, treeNode->split_value);
+				break;
+			case TREE_RANDOMNESS_STRONG:
+				SplitOnDLoquateNodeExtremeRandomly(data, label, total_variables_num, total_classes_num,
+					treeNode->samples_index, treeNode->arrival_samples_num,
+					pInputParam->mvariables, treeNode->split_variable_index, treeNode->split_value);
+				break;
 
-		//////////////////////////test//////////////////////////
-		// tm1 += (clock() - startTime);
+
+			default:
+				SplitOnDLoquatNode(data, label, total_variables_num, total_classes_num,
+					treeNode->samples_index, treeNode->arrival_samples_num,
+					pInputParam->mvariables, treeNode->split_variable_index, treeNode->split_value);
+				break;
+			}
+		}
 
 		int leftsubnode_samples_num = 0, rightsubnode_samples_num = 0;
 		//int* subnode_samples_queue = NULL;
@@ -1639,7 +1781,7 @@ struct LoquatCTreeNode* GrowLoquatCTreeNodeRecursively(float** data, int* label,
 		{
 			const int split_varid = treeNode->split_variable_index;
 			const float split_v = treeNode->split_value;
-			int* samples_index = treeNode->samples_index;
+			int* samples_index = treeNode->samples_index; 
 
 			int* samples_index_tmp = new int[arrival_num];
 			for (int n = 0; n < arrival_num; n++)
@@ -1651,7 +1793,7 @@ struct LoquatCTreeNode* GrowLoquatCTreeNodeRecursively(float** data, int* label,
 				}
 				else
 				{
-					samples_index_tmp[arrival_num - 1 - rightsubnode_samples_num] = samples_index[n];
+					samples_index_tmp[arrival_num-1-rightsubnode_samples_num] = samples_index[n];
 					rightsubnode_samples_num++;
 				}
 			}
@@ -1659,6 +1801,7 @@ struct LoquatCTreeNode* GrowLoquatCTreeNodeRecursively(float** data, int* label,
 			assert(arrival_num == treeNode->arrival_samples_num);
 			memcpy(samples_index, samples_index_tmp, sizeof(int) * arrival_num);
 			delete[] samples_index_tmp;
+			
 #if 0
 			for (int nn = 0; nn < treeNode->arrival_samples_num; nn++)
 			{
@@ -1669,7 +1812,7 @@ struct LoquatCTreeNode* GrowLoquatCTreeNodeRecursively(float** data, int* label,
 			}
 #endif
 		}
-
+		
 		// 在非常少的情况下分裂一枝的样本个数为0,
 		// 很有可能是因为到达这个节点的样本的属性都一样
 		// 连ExtremelRandomSplit都没成功
@@ -1713,15 +1856,34 @@ struct LoquatCTreeNode* GrowLoquatCTreeNodeRecursively(float** data, int* label,
 			&input,
 			loquatTree);
 
+		bool is_pruning = false;
+		if (is_pruning && treeNode->nodetype != enRootNode)
+		{
+			if (treeNode->pSubNode[0]->nodetype == enLeafNode && treeNode->pSubNode[1]->nodetype == enLeafNode)
+			{
+				bool toprune = leftsubnode_samples_num == 1 || rightsubnode_samples_num == 1;
+				float ratio = leftsubnode_samples_num * 1.f / rightsubnode_samples_num;
+				toprune = toprune && (ratio >= 10.f || ratio <= 0.1f);
+				if (toprune)
+				{
+					treeNode->nodetype = TreeNodeTpye::enLeafNode;
+					HarvestOneLeafNode(&treeNode->pSubNode[0]);
+					HarvestOneLeafNode(&treeNode->pSubNode[1]);
+					loquatTree->leaf_node_num = loquatTree->leaf_node_num-1;
+					treeNode->split_value = 0;
+					treeNode->split_variable_index = -1;
+					MaximumConfienceClassLabel(treeNode->class_distribution, total_classes_num, treeNode->leaf_node_label, NULL);
+					treeNode->leaf_confidence = treeNode->class_distribution[treeNode->leaf_node_label];
+					treeNode->samples_index = new int[treeNode->arrival_samples_num];
+					memcpy(treeNode->samples_index, sample_arrival_index, sizeof(int)* treeNode->arrival_samples_num);
+					return treeNode;
+				}
+			}
+		}
+		
 
 		treeNode->pSubNode[0]->pParentNode = treeNode;
 		treeNode->pSubNode[1]->pParentNode = treeNode;
-
-		/*delete[] subnode_samples_queue;
-		treeNode->pSubNode[0]->samples_index = NULL;
-		treeNode->pSubNode[0]->arrival_samples_num = 0;
-		treeNode->pSubNode[1]->samples_index = NULL;
-		treeNode->pSubNode[1]->arrival_samples_num = 0;*/
 		
 		if (treeNode->pSubNode[0]->nodetype != TreeNodeTpye::enLeafNode)
 		{
@@ -1768,7 +1930,6 @@ int GrowRandomizedCLoquatTreeRecursively(float **data, int *label, RandomCForest
 	int inbagcount = 0;   // inbagcount 不包括重叠的计数
 	memset(inbagmask, false, total_samples_num*sizeof(bool));
 
-	srand_freebsd(g_random_seed++);
 	for( i=0; i<selnum; i++ )
 	{
 		index = (int)((rand_freebsd() * 1.0 / RAND_MAX_RF) * total_samples_num);
@@ -1795,7 +1956,6 @@ int GrowRandomizedCLoquatTreeRecursively(float **data, int *label, RandomCForest
 			loquatTree->outofbag_samples_index[j++] = i;
 	}
 	delete []inbagmask;
-	//cout<<"selnum="<<selnum<<" inbagnum="<<inbagcount<<" outofbagnum="<<loquatTree->outofbag_samples_num<<endl;
 
 	// (2) Build the entire tree from the root node.
 	GrowNodeInput inputParam={RFinfo.datainfo.samples_num,
@@ -1865,7 +2025,7 @@ int EvaluateOneSample(float* data, LoquatCForest* loquatForest, int& label_index
 	return rv;
 }
 
-int RawVariableImportanceScore2(float** data, int* label, LoquatCForest* loquatForest, int nType, float* varImportance, bool bNormalize, char* filename)
+int RawVariableImportanceScore2(float** data, int* label, LoquatCForest* loquatForest, int nType, float* varImportance, bool bNormalize, int random_state, char* filename)
 {
 	if (!(nType == 0 || nType == 1))
 	{
@@ -1877,6 +2037,15 @@ int RawVariableImportanceScore2(float** data, int* label, LoquatCForest* loquatF
 		cout << "----------------------------------------------------------------------" << endl;
 		cout << endl;
 		return -1;
+	}
+
+	if (random_state < 0)
+	{
+		srand_freebsd(GenerateSeedFromSysTime());
+	}
+	else
+	{
+		srand_freebsd((unsigned int)random_state);
 	}
 
 	int var, tr, i, j, oobnum, index, rv=1;
@@ -2056,7 +2225,7 @@ int RawVariableImportanceScore2(float** data, int* label, LoquatCForest* loquatF
 }
 
 #ifdef  OPENMP_SPEEDUP
-int RawVariableImportanceScore2OMP(float** data, int* label, LoquatCForest* loquatForest, int nType, float* varImportance, bool bNormalize, char* filename, int jobs)
+int RawVariableImportanceScore2OMP(float** data, int* label, LoquatCForest* loquatForest, int nType, float* varImportance, bool bNormalize, int random_state, char* filename, int jobs)
 {
 	if (!(nType == 0 || nType == 1))
 	{
@@ -2068,6 +2237,15 @@ int RawVariableImportanceScore2OMP(float** data, int* label, LoquatCForest* loqu
 		cout << "----------------------------------------------------------------------" << endl;
 		cout << endl;
 		return -1;
+	}
+
+	if (random_state < 0)
+	{
+		srand_freebsd(GenerateSeedFromSysTime());
+	}
+	else
+	{
+		srand_freebsd((unsigned int)random_state);
 	}
 
 	int tr, rv = 1;
@@ -2256,25 +2434,244 @@ int RawVariableImportanceScore2OMP(float** data, int* label, LoquatCForest* loqu
 }
 #endif  // OPENMP_SPEEDUP
 
+LoquatCTreeNode*** createLeafNodeMatrix(LoquatCForest* forest, float** data)
+{
+	const int samples_num = forest->RFinfo.datainfo.samples_num;
+	const int trees_num = forest->RFinfo.ntrees;
+
+	LoquatCTreeNode*** leafNodeMat = new LoquatCTreeNode **[samples_num];
+	for (int n = 0; n < samples_num; n++)
+	{
+		leafNodeMat[n] = new LoquatCTreeNode * [trees_num];
+		for (int t = 0; t < trees_num; t++)
+		{
+			leafNodeMat[n][t] = (LoquatCTreeNode*)GetArrivedLeafNode(forest, t, data[n]);
+			assert(leafNodeMat[n][t] != NULL);
+		}
+	}
+
+	return leafNodeMat;
+}
+
+//int ClassificationForestOrigProximity(LoquatCForest* forest, float* data, LoquatCTreeNode*** leafNodeMatrix, float*& proximities)
+//{
+//
+//	const int samples_num = forest->RFinfo.datainfo.samples_num;
+//	const int trees_num = forest->RFinfo.ntrees;
+//	int rv = 1;
+//
+//	if (NULL != proximities)
+//		delete[] proximities;
+//	proximities = new float[samples_num];
+//	memset(proximities, 0, sizeof(float) * samples_num);
+//
+//	for (int t = 0; t < trees_num; t++)
+//	{
+//		LoquatCTreeNode* leaf_i = (LoquatCTreeNode*)GetArrivedLeafNode(forest, t, data);
+//		if (leaf_i == NULL)
+//		{
+//			rv = -1;
+//			continue;
+//		}
+//		for (int n = 0; n < samples_num; n++)
+//		{
+//			if (leafNodeMatrix[n][t] == leaf_i)
+//			{
+//				proximities[n] += 1.f;
+//			}
+//		}
+//	}
+//
+//	for (int n = 0; n < samples_num; n++)
+//	{
+//		proximities[n] /= trees_num;
+//		assert(proximities[n] >= 0 && proximities[n] <= 1.f);
+//	}
+//
+//	return rv;
+//}
+
+int _ClassificationForestOrigProximity(LoquatCForest* forest, float* data, LoquatCTreeNode*** leafNodeMatrix, float*& proximities)
+{
+
+	const int samples_num = forest->RFinfo.datainfo.samples_num;
+	const int trees_num = forest->RFinfo.ntrees;
+
+	if (NULL != proximities)
+		delete[] proximities;
+	proximities = new float[samples_num];
+	memset(proximities, 0, sizeof(float) * samples_num);
+
+	LoquatCTreeNode** leaves_i = new LoquatCTreeNode * [trees_num];
+	for (int t = 0; t < trees_num; t++)
+	{
+		leaves_i[t] = (LoquatCTreeNode*)GetArrivedLeafNode(forest, t, data);
+		assert(leaves_i[t] != NULL);
+		if (leaves_i[t] == NULL)
+		{
+			delete[] leaves_i;
+			return -1;
+		}
+	}
+
+	for (int n = 0; n < samples_num; n++)
+	{
+		for (int t = 0; t < trees_num; t++)
+		{
+			if (leafNodeMatrix[n][t] == leaves_i[t])
+			{
+				proximities[n] += 1.f;
+			}
+		}
+	}
+
+	for (int n = 0; n < samples_num; n++)
+	{
+		proximities[n] /= trees_num;
+		assert(proximities[n] >= 0 && proximities[n] <= 1.f);
+	}
+
+	delete[] leaves_i;
+
+	return 1;
+}
+
+int ClassificationForestGAPProximity(LoquatCForest* forest, float** data, const int index_i, float*& proximities)
+{
+	if (NULL != proximities)
+		delete[] proximities;
+
+
+	proximities = new float[forest->RFinfo.datainfo.samples_num];
+	memset(proximities, 0, sizeof(float) * forest->RFinfo.datainfo.samples_num);
+
+	int* arrivals = NULL;
+
+	const int ntrees = forest->RFinfo.ntrees;
+	const int samples_num = forest->RFinfo.datainfo.samples_num;
+	int oobtree_num = 0;
+	for (int t = 0; t < ntrees; t++)
+	{
+		//where the i-th sample is oob
+		const struct LoquatCTreeStruct* tree = forest->loquatTrees[t];
+		bool i_oob = false;
+		for (int n = 0; n < tree->outofbag_samples_num; n++)
+		{
+			if (index_i == tree->outofbag_samples_index[n])
+			{
+				i_oob = true;
+				break;
+			}
+		}
+
+
+		if (false == i_oob)
+			continue;
+
+		oobtree_num++;
+
+		const struct LoquatCTreeNode* leaf_i = GetArrivedLeafNode(forest, t, data[index_i]);
+
+		if (leaf_i->samples_index != NULL)
+		{
+			const int arrival_num = leaf_i->arrival_samples_num;
+			//cout << "arrial_num: " << arrival_num<<"conf: "<<leaf_i->leaf_confidence << endl;
+			const float w = 1.0f / arrival_num;
+			for (int n = 0; n < arrival_num; n++)
+			{
+				proximities[leaf_i->samples_index[n]] += w;
+			}
+		}
+		else
+		{
+			// because forest did not store sample index arrrived at the leaf node, each in bag sample has to be tested
+			int arrival_num = 0;
+			if (NULL == arrivals)
+				arrivals = new int[samples_num];
+			memset(arrivals, 0, sizeof(int) * samples_num);
+			for (int n = 0; n < tree->inbag_samples_num; n++)
+			{
+				const int j = tree->inbag_samples_index[n];
+				const struct LoquatCTreeNode* leaf_j = GetArrivedLeafNode(forest, t, data[j]);
+				if (leaf_i == leaf_j)
+				{
+					arrival_num++;
+					arrivals[j]++;
+				}
+			}
+
+			for (int n = 0; n < samples_num; n++)
+			{
+				if (arrivals[n])
+					proximities[n] += arrivals[n] * 1.f / arrival_num;
+			}
+
+		}
+
+	}
+
+	delete[] arrivals;
+	if (0 == oobtree_num)
+		return -1;
+
+	for (int j = 0; j < forest->RFinfo.datainfo.samples_num; j++)
+		proximities[j] = proximities[j] / oobtree_num;
+
+	return 1;
+}
+
+int ClassificationForestOrigProximity(LoquatCForest* forest, float** data, const int index_i, float*& proximities)
+{
+	LoquatCTreeNode*** leafMatrix = createLeafNodeMatrix(forest, data);
+	
+	int  rv = _ClassificationForestOrigProximity(forest, data[index_i], leafMatrix, proximities);
+	
+	const int samples_num = forest->RFinfo.ntrees;
+	for (int n = 0; n < samples_num; n++)
+		delete[] leafMatrix[n];
+	delete[] leafMatrix;
+
+	return rv;
+}
+
+int ClassificationForestProximity(LoquatCForest* forest, float** data, const int index_i, PROXIMITY_TYPE prox_type, float*& proximities)
+{
+	int rv = -1;
+	switch (prox_type)
+	{
+	case PROXIMITY_TYPE::PROX_ORIGINAL:
+		rv = ClassificationForestOrigProximity(forest, data, index_i, proximities);
+		break;
+	case PROXIMITY_TYPE::PROX_GEO_ACC:
+		rv = ClassificationForestGAPProximity(forest, data, index_i, proximities);
+		break;
+	default:
+		rv = ClassificationForestOrigProximity(forest, data, index_i, proximities);
+		break;
+	}
+
+	return rv;
+}
+
 int RawOutlierMeasure(LoquatCForest* loquatForest, float** data, int* label, float*& raw_score)
 {
 	if (NULL != raw_score)
-		delete [] raw_score;
-	
-	int rv=1;
+		delete[] raw_score;
+
+	int rv = 1;
 	const  int samples_num = loquatForest->RFinfo.datainfo.samples_num;
 	const int class_num = loquatForest->RFinfo.datainfo.classes_num;
 
-	raw_score = new float [samples_num];
-	memset(raw_score, 0, sizeof(float)*samples_num);
-	
-	float *proximities = NULL;
-	for (int i=0; i<samples_num; i++)
-	{		
+	raw_score = new float[samples_num];
+	memset(raw_score, 0, sizeof(float) * samples_num);
+
+	float* proximities = NULL;
+	for (int i = 0; i < samples_num; i++)
+	{
 		ClassificationForestGAPProximity(loquatForest, data, i, proximities /*OUT*/);
 
 		float  proximity2_sum = 0.f;
-		for(int j=0; j<samples_num; j++)
+		for (int j = 0; j < samples_num; j++)
 		{
 			if (label[j] != label[i] || j == i)
 				continue;
@@ -2282,23 +2679,23 @@ int RawOutlierMeasure(LoquatCForest* loquatForest, float** data, int* label, flo
 			// within class
 			proximity2_sum += proximities[j] * proximities[j];
 		}
-		
-		raw_score[i] = samples_num / (proximity2_sum+1e-5);
 
-		delete [] proximities;
+		raw_score[i] = samples_num / (proximity2_sum + 1e-5);
+
+		delete[] proximities;
 		proximities = NULL;
 	}
 
-	float *dev = new float[class_num];
-	float *median = new float[class_num];
-	memset(dev, 0, sizeof(float)*class_num);
-	memset(median, 0, sizeof(float)*class_num);
+	float* dev = new float[class_num];
+	float* median = new float[class_num];
+	memset(dev, 0, sizeof(float) * class_num);
+	memset(median, 0, sizeof(float) * class_num);
 
-	for (int j=0; j<class_num; j++)
+	for (int j = 0; j < class_num; j++)
 	{
 		vector<float>  raw_score_class_j;
-		
-		for (int i=0; i<samples_num; i++)
+
+		for (int i = 0; i < samples_num; i++)
 		{
 			if (label[i] == j)
 				raw_score_class_j.push_back(raw_score[i]);
@@ -2315,111 +2712,27 @@ int RawOutlierMeasure(LoquatCForest* loquatForest, float** data, int* label, flo
 			continue;
 		}
 
-		if (sample_num_j%2 == 1)
-			median[j] = raw_score_class_j[sample_num_j/2];
+		if (sample_num_j % 2 == 1)
+			median[j] = raw_score_class_j[sample_num_j / 2];
 		else
-			median[j] = 0.5f*(raw_score_class_j[sample_num_j/2] + raw_score_class_j[sample_num_j/2-1]);
-		
+			median[j] = 0.5f * (raw_score_class_j[sample_num_j / 2] + raw_score_class_j[sample_num_j / 2 - 1]);
 
-		for (auto it=raw_score_class_j.begin(); it != raw_score_class_j.end(); it++)
+
+		for (auto it = raw_score_class_j.begin(); it != raw_score_class_j.end(); it++)
 			dev[j] += abs(*it - median[j]);
 		dev[j] = dev[j] / sample_num_j;
 	}
 
-	for( int i=0, lb=0; i<samples_num; i++)
+	for (int i = 0, lb = 0; i < samples_num; i++)
 	{
 		lb = label[i];
-		raw_score[i] = RF_MAX( (raw_score[i] - median[lb])/(dev[lb]+1e-5), 0.0);
+		raw_score[i] = RF_MAX((raw_score[i] - median[lb]) / (dev[lb] + 1e-5), 0.0);
 	}
 
-	delete [] dev;
-	delete [] median;
+	delete[] dev;
+	delete[] median;
 
 	return rv;
-}
-
-
-int ClassificationForestGAPProximity(LoquatCForest* forest, float** data, const int index_i, float*& proximities)
-{
-	if (NULL != proximities)
-		delete[] proximities;
-
-	
-	proximities = new float[forest->RFinfo.datainfo.samples_num];
-	memset(proximities, 0, sizeof(float) * forest->RFinfo.datainfo.samples_num);
-
-	int *arrivals = NULL;
-
-	const int ntrees = forest->RFinfo.ntrees;
-	const int samples_num = forest->RFinfo.datainfo.samples_num;
-	int oobtree_num = 0;
-	for (int t = 0; t < ntrees; t++)
-	{
-		//where the i-th sample is oob
-		const struct LoquatCTreeStruct* tree = forest->loquatTrees[t];
-		bool i_oob = false;
-		for (int n = 0; n < tree->outofbag_samples_num; n++)
-		{
-			if (index_i == tree->outofbag_samples_index[n]) 
-			{
-				i_oob = true;
-				break;
-			}
-		}
-
-
-		if (false == i_oob)
-			continue;
-
-		oobtree_num++;
-
-		const struct LoquatCTreeNode* leaf_i = GetArrivedLeafNode(forest, t, data[index_i]);
-		
-		if (leaf_i->samples_index != NULL)
-		{
-			const int arrival_num = leaf_i->arrival_samples_num;
-			const float w = 1.0f/arrival_num;
-			for (int n=0; n<arrival_num; n++)
-			{
-				proximities[leaf_i->samples_index[n]] += w;
-			}
-		}else
-		{
-			// because forest did not store sample index arrrived at the leaf node, each in bag sample has to be tested
-			int arrival_num = 0;
-			if (NULL == arrivals) 
-				arrivals = new int [samples_num];
-			memset(arrivals, 0, sizeof(int)*samples_num);
-			for (int n = 0; n < tree->inbag_samples_num; n++)
-			{
-				const int j = tree->inbag_samples_index[n];
-				const struct LoquatCTreeNode* leaf_j = GetArrivedLeafNode(forest, t, data[j]);
-				if (leaf_i == leaf_j)
-				{
-					arrival_num++;
-					arrivals[j]++;
-				}
-			}
-
-			for(int n=0; n<samples_num; n++)
-			{
-				if (arrivals[n])
-					proximities[n] += arrivals[n]*1.f/arrival_num;
-			}
-			
-		}
-		
-	}
-
-	if (0 == oobtree_num)
-		return -1;
-
-	for (int j = 0; j < forest->RFinfo.datainfo.samples_num; j++)
-		proximities[j] = proximities[j] / oobtree_num;
-
-	delete [] arrivals;
-
-	return 1;
 }
  
 int PredictAnTestSampleOnOneTree(float *data, const int variables_num, struct LoquatCTreeStruct *loquatTree, int &predicted_class_index, float &confidence)
@@ -2466,8 +2779,7 @@ int PredictAnTestSampleOnOneTree(float *data, const int variables_num, struct Lo
 
 const struct LoquatCTreeNode *GetArrivedLeafNode(const LoquatCForest *RF, const int tree_index, float *data)
 {
-	int total_tree_num = RF->RFinfo.ntrees;
-	if( tree_index < 0 && tree_index >= total_tree_num )
+	if( tree_index < 0 || tree_index >= RF->RFinfo.ntrees)
 		return NULL;
 
 	const int max_depth_index = RF->loquatTrees[tree_index]->depth;
@@ -2612,7 +2924,6 @@ int ErrorOnInbagTrainSamples(float** data, const int* label, const LoquatCForest
 int OOBErrorEstimate(float** data, const int* label, const LoquatCForest* loquatForest, float& error_rate, int isHardDecision)
 {
 	const int ntrees = loquatForest->RFinfo.ntrees;
-	//int variables_num = loquatForest->RFinfo.datainfo.variables_num;
 	const int classes_num = loquatForest->RFinfo.datainfo.classes_num;
 	const int samples_num = loquatForest->RFinfo.datainfo.samples_num;
 	int i, j, k, oobnum, indx, rv = 1, * pIndex = NULL;

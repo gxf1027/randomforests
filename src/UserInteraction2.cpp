@@ -305,6 +305,129 @@ int InitalClassificationDataMatrixFormFile2(const char *fileName, float **&data,
 	return 1;
 }
 
+int InitalClassificationDataMatrixFormFile2WithNan(const char* fileName, float**& data, int*& label, Dataset_info_C& data_info)
+{
+	int i, j;
+	ifstream file(fileName, ifstream::in);
+	if (file.fail())
+	{
+		file.close();
+		return -2;
+	}
+
+	int N, M, C;
+	/*char *extraInfo=new char[100];
+	file>>extraInfo>>N;
+	file>>extraInfo>>M;
+	file>>extraInfo>>C;
+	delete [] extraInfo;*/
+
+	std::string line, subline;
+	// @totoal_sample_num= N
+	std::getline(file, line);
+	subline = line.substr(line.find("=") + 1);
+	subline.erase(0, subline.find_first_not_of(" "));
+	subline.erase(subline.find_last_not_of(" ") + 1);
+	try
+	{
+		N = stoi(subline);
+	}
+	catch (const std::exception& ex)
+	{
+		cout << "exception happened when read 'totoal_sample_num'" << endl;
+		return -1;
+	}
+
+	// @variable_num= M
+	std::getline(file, line);
+	subline = line.substr(line.find("=") + 1);
+	subline.erase(0, subline.find_first_not_of(" "));
+	subline.erase(subline.find_last_not_of(" ") + 1);
+	try
+	{
+		M = stoi(subline);
+	}
+	catch (const std::exception& ex)
+	{
+		cout << "exception happened when read 'variable_num'" << endl;
+		return -1;
+	}
+
+	// @class_num= M
+	std::getline(file, line);
+	subline = line.substr(line.find("=") + 1);
+	subline.erase(0, subline.find_first_not_of(" "));
+	subline.erase(subline.find_last_not_of(" ") + 1);
+	try
+	{
+		C = stoi(subline);
+	}
+	catch (const std::exception& ex)
+	{
+		cout << "exception happened when read 'class_num'" << endl;
+		return -1;
+	}
+
+
+	if (N <= 0 || M <= 0 || C <= 0)
+	{
+		cout << "**********************************************************" << endl;
+		cout << "Make sure that the File format is correct:" << endl;
+		cout << "@totoal_sample_num= N" << endl;
+		cout << "@variable_num= M" << endl;
+		cout << "@class_num= C" << endl;
+		cout << "label1   x11 x12......x1M" << endl;
+		cout << "label2   x21 x22......x2M" << endl;
+		cout << "... ...  ... ..." << endl;
+		cout << "labelN   xN1 xN2......xNM" << endl;
+		cout << "**********************************************************" << endl;
+		return -1;
+	}
+
+	cout << "**********************************************************" << endl;
+	cout << "Data set information:" << endl;
+	cout << "Number of training samples =" << " " << N << endl;
+	cout << "Number of variables =       " << " " << M << endl;
+	cout << "Number of classes =         " << " " << C << endl;
+	cout << "**********************************************************" << endl;
+
+	data_info.samples_num = N;
+	data_info.variables_num = M;
+	data_info.classes_num = C;
+
+	data = new float* [N];
+	for (i = 0; i < N; i++)
+		data[i] = new float[M];
+
+	label = new int[N];
+	float flabel;
+
+	char tmp[200] = { 0 };
+
+	for (i = 0; i < N; i++)
+	{
+		file >> flabel;
+		label[i] = (int)flabel;
+		// 		if( label0 == -1 )
+		// 			label[i] = -1;
+		// 		else
+		// 			label[i] = 1;
+
+		for (j = 0; j < M; j++)
+		{
+			file >> tmp;
+
+			//file >> data[i][j]; // variable value for ith sample's (j+1)th variable
+			data[i][j] = atof(tmp);
+			//cout<<tmp<<" "<<data[i][j]<<endl;
+		}
+	}
+
+	file.close();
+
+	return 1;
+}
+
 int InitalRegressionDataMatrixFormFile2(const char* fileName, float**& data, float*& target, Dataset_info_R& data_info)
 {
 	int i, j;
