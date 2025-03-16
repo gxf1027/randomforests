@@ -16,7 +16,6 @@ using namespace std;
 #include "SharedRoutines.h"
 
 #define INTERVAL_STEPS_NUM				50
-#define VERY_SMALL_VALUE				1e-10f
 #define DEFAULT_MIN_SAMPLES				5
 #define DEFAULT_MAX_TREE_DEPTH_R		40
 
@@ -600,7 +599,7 @@ int ExtremeRandomlySplitOnRLoquatNode(float** data, int variables_num_x, const i
 			else if (data[index][var_index] < minv)
 				minv = data[index][var_index];
 		}
-		if (maxv - minv > VERY_SMALL_VALUE * 1e6)
+		if (maxv - minv > FLT_EPSILON)
 		{
 			split_variable_index = var_index;
 			int s = rand_freebsd() % 100;
@@ -608,7 +607,6 @@ int ExtremeRandomlySplitOnRLoquatNode(float** data, int variables_num_x, const i
 			break;
 		}
 	}
-	//cout<<"total: "<<2*variables_num-totalTryNum<<" max:"<<maxv<<" min:"<<minv<<endl;
 	if (totalTryNum == 0)
 		return -1;
 	else
@@ -630,9 +628,9 @@ int _cmp_r(const void* a, const void* b)
 	return ((var_target*)a)->var > ((var_target*)b)->var ? 1 : -1;
 }
 
-// 采用类积分直方图的方式，在1维target(output)情况下加速
-int _SplitOnRLoquatNodeCompletelySearchBySort1D(float** data, float* target, int variables_num_x, int variables_num_y,
-										const int* innode_samples_index, int innode_num, int Mvariable, int& split_variable_index, float& split_value)
+
+int _SplitOnRLoquatNodeCompletelySearchBySort1D(float** data, float* target, const int variables_num_x, const int variables_num_y,
+	const int* innode_samples_index, int innode_num, int Mvariable, int& split_variable_index, float& split_value)
 {
 	assert(variables_num_y == 1);
 
@@ -678,12 +676,18 @@ int _SplitOnRLoquatNodeCompletelySearchBySort1D(float** data, float* target, int
 			vts[k].target = target[index];
 		}
 
-		// 排序
-		qsort(vts, innode_num, sizeof(var_target), _cmp_r);
+		struct {
+			bool operator()(var_target& a, var_target& b) const
+			{
+				return a.var < b.var;
+			}
+		} cmp;
+
+		std::sort(vts, vts + innode_num, cmp);
 
 		// 计算累计直方图(需排序后)
 		targetCum[0] = vts[0].target;
-		targetSqrCum[0] = 1.0*vts[0].target * vts[0].target;
+		targetSqrCum[0] = 1.0 * vts[0].target * vts[0].target;
 		for (int k = 1; k < innode_num; k++)
 		{
 			const double t = vts[k].target;
@@ -755,7 +759,7 @@ int _SplitOnRLoquatNodeCompletelySearchBySort1D(float** data, float* target, int
 				out.close();
 				int y = 1;
 			}*/
-			
+
 		}
 		else
 			rv = 0;
@@ -769,9 +773,11 @@ int _SplitOnRLoquatNodeCompletelySearchBySort1D(float** data, float* target, int
 	return rv;
 }
 
+
 int _SplitOnRLoquatNodeCompletelySearchBySort2D(float** data, float* target, int variables_num_x, int variables_num_y,
-						const int* innode_samples_index, int innode_num, int Mvariable, int& split_variable_index, float& split_value)
+													const int* innode_samples_index, int innode_num, int Mvariable, int& split_variable_index, float& split_value)
 {
+	//cout << "_SplitOnRLoquatNodeCompletelySearchBySort2D_X" << endl;
 	assert(variables_num_y == 2);
 
 	int i, j, index, rv = 1;
@@ -828,19 +834,26 @@ int _SplitOnRLoquatNodeCompletelySearchBySort2D(float** data, float* target, int
 		}
 
 		// 排序
-		qsort(vts, innode_num, sizeof(var_id), _cmp_r);
+		struct {
+			bool operator()(var_id a, var_id b) const
+			{
+				return a.var < b.var;
+			}
+		} customComp;
+
+		std::sort(vts, vts + innode_num, customComp);
 
 		// 计算累计直方图(需排序后)
-		targetCum1[0] = target[vts[0].index*2];
-		targetCum2[0] = target[vts[0].index*2+1];
-		covMatCum00[0] = 1.0*target[vts[0].index*2] * target[vts[0].index*2];
-		covMatCum01[0] = 1.0*target[vts[0].index*2] * target[vts[0].index*2+1];
-		covMatCum11[0] = 1.0*target[vts[0].index*2+1] * target[vts[0].index*2+1];
+		targetCum1[0] = target[vts[0].index * 2];
+		targetCum2[0] = target[vts[0].index * 2 + 1];
+		covMatCum00[0] = 1.0 * target[vts[0].index * 2] * target[vts[0].index * 2];
+		covMatCum01[0] = 1.0 * target[vts[0].index * 2] * target[vts[0].index * 2 + 1];
+		covMatCum11[0] = 1.0 * target[vts[0].index * 2 + 1] * target[vts[0].index * 2 + 1];
 
 		for (int k = 1; k < innode_num; k++)
 		{
-			const double t1 = target[vts[k].index*2];
-			const double t2 = target[vts[k].index*2+1];
+			const double t1 = target[vts[k].index * 2];
+			const double t2 = target[vts[k].index * 2 + 1];
 			targetCum1[k] = targetCum1[k - 1] + t1;
 			targetCum2[k] = targetCum2[k - 1] + t2;
 			covMatCum00[k] = covMatCum00[k - 1] + t1 * t1;
@@ -866,14 +879,14 @@ int _SplitOnRLoquatNodeCompletelySearchBySort2D(float** data, float* target, int
 			b = covMatCum01[start] - targetCum1[start] * targetCum2[start] / lcount;
 			c = b;
 			d = covMatCum11[start] - targetCum2[start] * targetCum2[start] / lcount;
-			lCov = (a * d - b * c) / (1.0*lcount * lcount);
+			lCov = (a * d - b * c) / (1.0 * lcount * lcount);
 
 			// 计算2X2协方差矩阵的行列式
 			a = (covMatCum00[end] - covMatCum00[start]) - (targetCum1[end] - targetCum1[start]) * (targetCum1[end] - targetCum1[start]) / rcount;
 			b = (covMatCum01[end] - covMatCum01[start]) - (targetCum1[end] - targetCum1[start]) * (targetCum2[end] - targetCum2[start]) / rcount;
 			c = b;
 			d = (covMatCum11[end] - covMatCum11[start]) - (targetCum2[end] - targetCum2[start]) * (targetCum2[end] - targetCum2[start]) / rcount;
-			rCov = (a * d - b * c) / (1.0*rcount * rcount);
+			rCov = (a * d - b * c) / (1.0 * rcount * rcount);
 
 			gini_like = (lcount * lCov + rcount * rCov) / innode_num;
 
@@ -932,7 +945,7 @@ int _SplitOnRLoquatNodeCompletelySearchBySort2D(float** data, float* target, int
 }
 
 // node splitting by measuring the determinant of covariance matrix
-int _SplitOnRLoquatNodeCompletelySearch(float** data, float* target, int variables_num_x, int variables_num_y,
+int _SplitOnRLoquatNodeCompletelySearch(float** data, float* target, const int variables_num_x, const int variables_num_y,
 										const int* innode_samples_index, int innode_num, int Mvariable, int& split_variable_index, float& split_value)
 {
 
@@ -1084,8 +1097,8 @@ int _SplitOnRLoquatNodeCompletelySearch(float** data, float* target, int variabl
  multi-target regression with mse-based splitting criterion
  accelerated method
 */
-int SplitOnRNodeCompletelySearchBySortMSE(float** data, float* target, int variables_num_x, int variables_num_y,
-			const int* innode_samples_index, int innode_num, int Mvariable, int& split_variable_index, float& split_value)
+int SplitOnRNodeCompletelySearchBySortMSE(float** data, float* target, const int variables_num_x, const int variables_num_y,
+											const int* innode_samples_index, int innode_num, int Mvariable, int& split_variable_index, float& split_value)
 {
 	int i, j, index, rv = 1;
 	int* selSplitIndex = new int[Mvariable];
@@ -1115,7 +1128,7 @@ int SplitOnRNodeCompletelySearchBySortMSE(float** data, float* target, int varia
 		targetCum[y] = new double[innode_num];
 		memset(targetCum[y], 0, sizeof(double) * innode_num);
 	}
-	double* targetSqrCum = new double [innode_num];
+	double* targetSqrCum = new double[innode_num];
 
 
 	var_id* vts = new var_id[innode_num];
@@ -1133,7 +1146,15 @@ int SplitOnRNodeCompletelySearchBySortMSE(float** data, float* target, int varia
 			vts[k].index = index;
 		}
 
-		qsort(vts, innode_num, sizeof(var_id), _cmp_r);
+		// 排序
+		struct {
+			bool operator()(var_id a, var_id b) const
+			{
+				return a.var < b.var;
+			}
+		} customComp;
+
+		std::sort(vts, vts + innode_num, customComp);
 
 		memset(targetSqrCum, 0, sizeof(double) * innode_num);
 		for (int y = 0; y < variables_num_y; y++)
@@ -1149,7 +1170,7 @@ int SplitOnRNodeCompletelySearchBySortMSE(float** data, float* target, int varia
 			{
 				const double t = target[vts[k].index * variables_num_y + y];
 				targetCum[y][k] = targetCum[y][k - 1] + t;
-				targetSqrCum[k] +=  t * t;
+				targetSqrCum[k] += t * t;
 			}
 		}
 
@@ -1163,7 +1184,7 @@ int SplitOnRNodeCompletelySearchBySortMSE(float** data, float* target, int varia
 			splitv = 0.5f * (vts[k - 1].var + vts[k].var);
 			lcount = k;
 			rcount = innode_num - k;
-			
+
 			lVar = targetSqrCum[k - 1] / lcount;
 			rVar = (targetSqrCum[innode_num - 1] - targetSqrCum[k - 1]) / rcount;
 			lMeanSqr = rMeanSqr = 0.0;
@@ -1231,7 +1252,7 @@ int SplitOnRNodeCompletelySearchBySortMSE(float** data, float* target, int varia
 }
 
 
-int SplitOnRLoquatNodeCompletelySearch(float** data, float* target, int variables_num_x, int variables_num_y,
+int SplitOnRLoquatNodeCompletelySearch(float** data, float* target, const int variables_num_x, const int variables_num_y,
 										const int* innode_samples_index, int innode_num, int Mvariable, int& split_variable_index, float& split_value)
 {
 
@@ -1516,33 +1537,19 @@ int _SplitOnRLoquatNode1D(float** data, const float* target, const int variables
 			}
 
 			lVar = rVar = lMean = rMean = 0.0f;
-
 			lcount = 0;	rcount = 0;
-			//
-// 			ofstream lrecord("left.txt");
-// 			ofstream rrecord("right.txt");
 
 			for (i = 0; i < innode_num; i++)
 			{
 				feat_v = target[innode_samples_index[i]];
 				if (data[innode_samples_index[i]][selSplitIndex] <= splitv)
 				{
-					//
-// 					for( int g=0; g<variables_num_y; g++ )
-// 						lrecord<<target[index][g]<<" ";
-// 					lrecord<<endl;
-
 					lcount++;
 					lMean += feat_v;
 					lVar += feat_v*feat_v;
 				}
 				else
 				{
-					//
-// 					for( int g=0; g<variables_num_y; g++ )
-// 						rrecord<<target[index][g]<<" ";
-// 					rrecord<<endl;
-
 					rcount++;
 					rMean += feat_v;
 					rVar += feat_v*feat_v;
@@ -1604,7 +1611,7 @@ int _SplitOnRLoquatNode1D(float** data, const float* target, const int variables
 	return rv;
 }
 
-int SplitOnRLoquatNode(float** data, float* target, int variables_num_x, int variables_num_y,
+int SplitOnRLoquatNode(float** data, float* target, const int variables_num_x, const int variables_num_y,
 			const int* innode_samples_index, int innode_num, int Mvariable, int& split_variable_index, float& split_value)
 {
 	int rv;
@@ -1623,7 +1630,7 @@ int SplitOnRLoquatNode(float** data, float* target, int variables_num_x, int var
 int _SplitExtremelyRandom1D(float** data, float* target, int variables_num_x, int variables_num_y,
 					const int* innode_samples_index, int innode_num, int Mvariable, int& split_variable_index, float& split_value)
 {
-	int i, j, m, n, index, rv = 1;
+	int i, j, index, rv = 1;
 	int* selSplitIndex = new int[Mvariable];
 	float maxv, minv;
 	float splitv_cand;
@@ -1658,10 +1665,11 @@ int _SplitExtremelyRandom1D(float** data, float* target, int variables_num_x, in
 			else if (data[index][var_index] < minv)
 				minv = data[index][var_index];
 		}
-		splitv_cand = ((float)rand_freebsd()) / RAND_MAX_RF * (maxv - minv) + minv;
 
 		if (maxv - minv < FLT_EPSILON)
 			continue;
+
+		splitv_cand = ((float)rand_freebsd()) / RAND_MAX_RF * (maxv - minv) + minv;
 
 		lcount = 0;
 		rcount = 0;
@@ -1878,7 +1886,7 @@ int _SplitExtremelyRandom(float **data, float *target, int variables_num_x, int 
 }
 
 
-int SplitExtremelyRandom(float** data, float* target, int variables_num_x, int variables_num_y,
+int SplitExtremelyRandom(float** data, float* target, const int variables_num_x, const int variables_num_y,
 	const int* innode_samples_index, int innode_num, int Mvariable, int& split_variable_index, float& split_value)
 {
 	int rv;
@@ -2190,13 +2198,13 @@ struct LoquatRTreeNode* GrowLoquatRTreeNodeRecursively(float** data, float* targ
 	else
 	{
 
-		int (*split)(float** data, float* target, int variables_num_x, int variables_num_y,
+		int (*split)(float** data, float* target, const	int variables_num_x, const int variables_num_y,
 										const int* innode_samples_index, int innode_num, int Mvariable, int& split_variable_index, float& split_value);
 
 		if (total_variables_num_y > 1 &&  (arrival_num<20 || pInputParam->splitCriterion == SplitCriterion::mse) )
 		{
 			// multi-target regression with mse-based splitting criterion
-			split=SplitOnRNodeCompletelySearchBySortMSE;
+			split = SplitOnRNodeCompletelySearchBySortMSE;
 		}
 		else
 		{
@@ -3139,7 +3147,7 @@ int RawVariableImportanceScore(float** data, float* target, LoquatRForest* loqua
 	const int target_num = loquatForest->RFinfo.datainfo.variables_num_y;
 	const int Ntrees = loquatForest->RFinfo.ntrees;
 	int* pIndex = NULL;
-	float confidence,  predicted=0.f;
+	float predicted=0.f;
 	float *mse = new float[target_num];
 	float *mse_premute = new float[target_num];
 	float *target_predicted = NULL;
