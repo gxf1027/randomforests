@@ -33,7 +33,8 @@ using namespace std;
 #define STOP_CRITERION_MIN_GINI_IMPURITY	0.01    // 这个参数变小(0.1->0.01)可以显著提高分类准确率
 #define DEFAULT_MAX_TREE_DEPTH_C			40
 #define DEFAULT_MIN_SAMPLES_C				5
-#define GROW_DEEPER_FOR_PROXIMITY				8124
+#define GROW_DEEPER_FOR_PROXIMITY			8124
+#define NODE_NUM_TO_GROW_DEEPER				50
 //#define new  new(_CLIENT_BLOCK, __FILE__, __LINE__)
 
 struct _GrowNodeInput
@@ -49,6 +50,20 @@ struct _GrowNodeInput
 	int randomness;
 };
 typedef struct _GrowNodeInput GrowNodeInput;
+
+
+LoquatCTreeNode::~LoquatCTreeNode()
+{
+	delete[] samples_index;
+	delete[] class_distribution;
+		
+	if (pSubNode != NULL)
+	{
+		delete pSubNode[0];
+		delete pSubNode[1];
+	}
+	delete pSubNode;
+}
 
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1022,7 +1037,7 @@ int SplitOnDLoquatNodeCompletelySearch(float** data, int* label, int samples_num
 		}
 		// 用自定义函数对象排序
 		struct {
-			bool operator()(var_label a, var_label b) const
+			bool operator()(const var_label& a, const var_label& b) const
 			{
 				return a.var < b.var;
 			}
@@ -1176,7 +1191,7 @@ int SplitOnDLoquatNodeCompletelySearch2(float** data, int* label, int variables_
         }
         // 用自定义函数对象排序
         struct {
-            bool operator()(var_label a, var_label b) const
+            bool operator()(const var_label& a, const var_label& b) const
             {
                 return a.var < b.var;
             }
@@ -1719,11 +1734,11 @@ struct LoquatCTreeNode* GrowLoquatCTreeNodeRecursively(float** data, int* label,
 		isEqualConf = max_conf - second_max_conf <= FLT_MIN ? true : false;
 	}
 
+	bool isleaf = ((isLowImpurity || isMaxDepth) || (isFewSamples && !isEqualConf));
 	bool bGrowToGreaterDepth = pInputParam->maxDepth == GROW_DEEPER_FOR_PROXIMITY && 
-						isLowImpurity && arrival_num > 50;
-	//bGrowToGreaterDepth = false;
+								isLowImpurity && arrival_num > NODE_NUM_TO_GROW_DEEPER;
 
-	if (((isLowImpurity || isMaxDepth) || (isFewSamples && !isEqualConf)) && !bGrowToGreaterDepth)
+	if ( isleaf && !bGrowToGreaterDepth)
 	{
 		treeNode->nodetype = TreeNodeTpye::enLeafNode;
 		treeNode->pSubNode[0] = NULL;
@@ -1741,6 +1756,7 @@ struct LoquatCTreeNode* GrowLoquatCTreeNodeRecursively(float** data, int* label,
 
 		if (bGrowToGreaterDepth)
 		{
+			assert(isleaf);
 			SplitNodeUnsupervisedly(data, total_variables_num, treeNode->samples_index, treeNode->arrival_samples_num,
 				pInputParam->mvariables, treeNode->split_variable_index, treeNode->split_value);
 			//cout<<"go deeper: "<<treeNode->arrival_samples_num<<endl;
@@ -2903,7 +2919,7 @@ int ErrorOnInbagTrainSamples(float** data, const int* label, const LoquatCForest
 			error_num++;
 	}
 
-	error_rate = error_num / (float)inbagnum_norep;
+	error_rate = inbagnum_norep > 0 ? error_num / (float)inbagnum_norep : 1.0f;
 
 	// Release allocated memory
 	for (j = 0; j < samples_num; j++)
@@ -2952,13 +2968,13 @@ int OOBErrorEstimate(float** data, const int* label, const LoquatCForest* loquat
 		ploquatTree = loquatForest->loquatTrees[i];
 		if (ploquatTree == NULL)
 		{
-			continue;
 			rv = -1;
+			continue;
 		}
 		if (ploquatTree->outofbag_samples_index == NULL)
 		{
-			continue;
 			rv = -2;
+			continue;
 		}
 
 		oobnum = ploquatTree->outofbag_samples_num;
@@ -2991,6 +3007,22 @@ int OOBErrorEstimate(float** data, const int* label, const LoquatCForest* loquat
 					data_class_confidence[indx][k] += leafNode->class_distribution[k];
 			}
 		}
+	}
+
+	if (effectiveNum == 0)
+	{
+		for (j = 0; j < samples_num; j++)
+		{
+			delete[] data_class_confidence[j];
+			data_class_confidence[j] = NULL;
+		}
+		delete[] data_class_confidence;
+		data_class_confidence = NULL;
+
+		delete[] bEffective;
+
+		error_rate = 1.0f;
+		return rv;
 	}
 
 	int error_num = 0;
@@ -3477,137 +3509,12 @@ int HarvestOneLeafNode(struct LoquatCTreeNode **treeNode)
 	return 1;
 }
 
-// Deprecated 20210309
-//int HarvestOneDLoquatTree(struct LoquatCTreeStruct **loquatTree)
-//{
-//	if( (*loquatTree) == NULL )
-//		return 1;
-//
-//	if( (*loquatTree)->inbag_samples_index != NULL )
-//	{
-//		delete [] (*loquatTree)->inbag_samples_index;
-//		(*loquatTree)->inbag_samples_index = NULL;
-//		(*loquatTree)->inbag_samples_num = 0;
-//	}
-//
-//	if( (*loquatTree)->outofbag_samples_index != NULL )
-//	{
-//		delete [] (*loquatTree)->outofbag_samples_index;
-//		(*loquatTree)->outofbag_samples_index = NULL;
-//		(*loquatTree)->outofbag_samples_num = 0;
-//	}
-//
-//	int depth = (*loquatTree)->depth;
-//	int i;
-//	unsigned int j, maxNodeNumThisDepth=0;
-//	struct LoquatCTreeNode **pPreNode = NULL, **pCurNode = NULL;
-//	pPreNode = new struct LoquatCTreeNode *[1];
-//	pPreNode[0] = (*loquatTree)->rootNode;
-//	if( pPreNode[0] == NULL )
-//	{
-//		delete [] pPreNode;
-//		return 1;
-//	}
-//	else if( pPreNode[0]->nodetype == enLeafNode )
-//	{
-//		HarvestOneLeafNode(&pPreNode[0]);
-//		//delete pPreNode[0]; // 释放指针指向的空间
-//		delete [] pPreNode; // 释放指针 
-//		return 1;
-//	}
-//
-//	delete [] pPreNode;
-//	pPreNode = NULL;
-//
-//	while( 1 )
-//	{
-//		pPreNode = new struct LoquatCTreeNode *[1];
-//		pPreNode[0] = (*loquatTree)->rootNode;
-//
-//		for( i=1; i <= depth; i++ )
-//		{
-//			maxNodeNumThisDepth = (int)powf(2.f, (float)i);
-//			if( pCurNode !=NULL )
-//				delete []pCurNode;
-//			pCurNode = new struct LoquatCTreeNode *[maxNodeNumThisDepth];
-//			for ( j=0; j<maxNodeNumThisDepth/2; j++ ) 
-//			{
-//				if( pPreNode[j] == NULL )
-//				{
-//					pCurNode[j*2] = NULL;
-//					pCurNode[j*2+1] = NULL;
-//				}
-//				else if( pPreNode[j]->nodetype == enLeafNode )
-//				{
-//					pCurNode[j*2] = NULL;
-//					pCurNode[j*2+1] = NULL;
-//				}
-//				else{
-//					pCurNode[j*2] = pPreNode[j]->pSubNode[0];
-//					pCurNode[j*2+1] = pPreNode[j]->pSubNode[1];
-//				}
-//			}
-//
-//			delete []pPreNode;
-//			pPreNode = new struct LoquatCTreeNode *[maxNodeNumThisDepth];
-//			for( j=0; j<maxNodeNumThisDepth; j++ )
-//			{
-//				pPreNode[j] = pCurNode[j];
-//			}
-//			//delete []pCurNode;
-//		}
-//
-//		for( j=0; j<maxNodeNumThisDepth; j++ )
-//		{
-//			if( pCurNode[j] != NULL )
-//			{
-//				HarvestOneLeafNode(&pCurNode[j]);
-//				//delete pCurNode[j];
-//			}
-//		}
-//
-//		delete [] pPreNode;	
-//		pPreNode = NULL;
-//		delete [] pCurNode;
-//		pCurNode =NULL;
-//
-//		depth--;
-//
-//		if( depth<=0  )
-//			break;
-//	}
-//
-//	HarvestOneLeafNode(&((*loquatTree)->rootNode));
-//
-//	delete *loquatTree;
-//	*loquatTree = NULL;
-//
-//	return 1;
-//}
-
-// 2021-04-09
-void VisitAndHarvestNodes_PostOrder2(struct LoquatCTreeNode** pNode)
-{
-	if ((*pNode) == NULL)
-		return;
-
-	if ((*pNode)->pSubNode == NULL)
-		return;
-
-	VisitAndHarvestNodes_PostOrder2(&((*pNode)->pSubNode[0]));
-	VisitAndHarvestNodes_PostOrder2(&((*pNode)->pSubNode[1]));
-
-	HarvestOneLeafNode(pNode);
-}
-
 int HarvestOneCLoquatTreeRecursively(struct LoquatCTreeStruct **loquatTree)
 {
 	if( (*loquatTree) == NULL )
 		return 1;
 
-	struct LoquatCTreeNode *pNode = (*loquatTree)->rootNode;
-
-	VisitAndHarvestNodes_PostOrder2(&pNode);
+	delete (*loquatTree)->rootNode;
 
 	if( (*loquatTree)->inbag_samples_index != NULL )
 	{
@@ -3631,7 +3538,6 @@ int HarvestOneCLoquatTreeRecursively(struct LoquatCTreeStruct **loquatTree)
 
 int ReleaseClassificationForest(LoquatCForest **loquatForest)
 {
-	//cout << "ReleaseClassificationForest" << endl;
 	if( (*loquatForest) == NULL )
 		return 1;
 

@@ -69,6 +69,9 @@ struct LoquatCTreeNode
 
 	int leaf_node_label;
 	float leaf_confidence;
+
+	virtual int traverse(float* data) { return data[split_variable_index] <= split_value ? 0 : 1; }
+	virtual ~LoquatCTreeNode();
 };
 
 
