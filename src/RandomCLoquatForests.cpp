@@ -141,7 +141,7 @@ int PredictAnTestSampleOnOneTree(float* data, int variables_num, struct LoquatCT
 Description:    Get a leaf node a specified sample falling into.
 return:         the pointer to the leaf node. So all of the attributes that leaf node possesses is available
 */
-const struct LoquatCTreeNode* GetArrivedLeafNode(const LoquatCForest* RF, const int tree_index, float* data);
+const struct LoquatCTreeNode* GetArrivedLeafNode(const LoquatCTreeStruct* tree, float* data);
 
 int HarvestOneLeafNode(struct LoquatCTreeNode** treeNode);
 
@@ -2008,7 +2008,7 @@ int EvaluateOneSample(float* data, LoquatCForest* loquatForest, int& label_index
 	int t, k, effect_trees, rv = 1;
 	for (effect_trees = 0, t = 0; t < tree_num; t++)
 	{
-		pLeafNode = GetArrivedLeafNode(loquatForest, t, data);
+		pLeafNode = GetArrivedLeafNode(loquatForest->loquatTrees[t], data);
 		if (pLeafNode == NULL)
 		{
 			rv = 0;
@@ -2461,7 +2461,7 @@ LoquatCTreeNode*** createLeafNodeMatrix(LoquatCForest* forest, float** data)
 		leafNodeMat[n] = new LoquatCTreeNode * [trees_num];
 		for (int t = 0; t < trees_num; t++)
 		{
-			leafNodeMat[n][t] = (LoquatCTreeNode*)GetArrivedLeafNode(forest, t, data[n]);
+			leafNodeMat[n][t] = (LoquatCTreeNode*)GetArrivedLeafNode(forest->loquatTrees[t], data[n]);
 			assert(leafNodeMat[n][t] != NULL);
 		}
 	}
@@ -2521,7 +2521,7 @@ int _ClassificationForestOrigProximity(LoquatCForest* forest, float* data, Loqua
 	LoquatCTreeNode** leaves_i = new LoquatCTreeNode * [trees_num];
 	for (int t = 0; t < trees_num; t++)
 	{
-		leaves_i[t] = (LoquatCTreeNode*)GetArrivedLeafNode(forest, t, data);
+		leaves_i[t] = (LoquatCTreeNode*)GetArrivedLeafNode(forest->loquatTrees[t], data);
 		assert(leaves_i[t] != NULL);
 		if (leaves_i[t] == NULL)
 		{
@@ -2586,7 +2586,7 @@ int ClassificationForestGAPProximity(LoquatCForest* forest, float** data, const 
 
 		oobtree_num++;
 
-		const struct LoquatCTreeNode* leaf_i = GetArrivedLeafNode(forest, t, data[index_i]);
+		const struct LoquatCTreeNode* leaf_i = GetArrivedLeafNode(forest->loquatTrees[t], data[index_i]);
 
 		if (leaf_i->samples_index != NULL)
 		{
@@ -2608,7 +2608,7 @@ int ClassificationForestGAPProximity(LoquatCForest* forest, float** data, const 
 			for (int n = 0; n < tree->inbag_samples_num; n++)
 			{
 				const int j = tree->inbag_samples_index[n];
-				const struct LoquatCTreeNode* leaf_j = GetArrivedLeafNode(forest, t, data[j]);
+				const struct LoquatCTreeNode* leaf_j = GetArrivedLeafNode(forest->loquatTrees[t], data[j]);
 				if (leaf_i == leaf_j)
 				{
 					arrival_num++;
@@ -2755,8 +2755,6 @@ int PredictAnTestSampleOnOneTree(float *data, const int variables_num, struct Lo
 {
 	int max_depth_index = loquatTree->depth, cc=0;
 	struct LoquatCTreeNode *pNode = loquatTree->rootNode;
-	int test_variables_index;
-	float test_splitv;
 
 	while(1)
 	{
@@ -2770,20 +2768,9 @@ int PredictAnTestSampleOnOneTree(float *data, const int variables_num, struct Lo
 			return 1;
 		}
 
-		test_variables_index = pNode->split_variable_index;
-		test_splitv = pNode->split_value;
-		if( test_variables_index >= variables_num )
-		{
-			predicted_class_index = -1;
-			confidence = 0.f;
-			return -2;
-		}
+		assert(pNode->split_variable_index < variables_num && pNode->split_variable_index >=0);
 
-		if( data[test_variables_index] <= test_splitv )
-		{
-			pNode = pNode->pSubNode[0]; // 左枝
-		}else
-			pNode = pNode->pSubNode[1]; // 右枝
+		pNode = pNode->pSubNode[pNode->traverse(data)];
 
 		cc++;
 		if( cc>max_depth_index )
@@ -2793,14 +2780,11 @@ int PredictAnTestSampleOnOneTree(float *data, const int variables_num, struct Lo
 	return -1;
 }
 
-const struct LoquatCTreeNode *GetArrivedLeafNode(const LoquatCForest *RF, const int tree_index, float *data)
+const struct LoquatCTreeNode *GetArrivedLeafNode(const LoquatCTreeStruct* tree, float *data)
 {
-	if( tree_index < 0 || tree_index >= RF->RFinfo.ntrees)
-		return NULL;
-
-	const int max_depth_index = RF->loquatTrees[tree_index]->depth;
+	const int max_depth_index = tree->depth;
 	int depth = 0;
-	struct LoquatCTreeNode *pNode = RF->loquatTrees[tree_index]->rootNode;
+	struct LoquatCTreeNode *pNode = tree->rootNode;
 
 	while(1)
 	{
@@ -2810,10 +2794,7 @@ const struct LoquatCTreeNode *GetArrivedLeafNode(const LoquatCForest *RF, const 
 		if( pNode->nodetype == TreeNodeTpye::enLeafNode )
 			return pNode;
 
-		if( data[pNode->split_variable_index] <= pNode->split_value )
-			pNode = pNode->pSubNode[0]; // 左枝
-		else
-			pNode = pNode->pSubNode[1]; // 右枝
+		pNode = pNode->pSubNode[pNode->traverse(data)];
 
 		if( (++depth) > max_depth_index )
 			break;
@@ -2886,7 +2867,7 @@ int ErrorOnInbagTrainSamples(float** data, const int* label, const LoquatCForest
 				inbagnum_norep++;
 			}
 
-			leafNode = GetArrivedLeafNode(loquatForest, i, data[indx]);
+			leafNode = GetArrivedLeafNode(ploquatTree, data[indx]);
 			if (NULL == leafNode)
 			{
 				rv = 0;   // 有错误产生，但不至于退出函数
@@ -2989,7 +2970,7 @@ int OOBErrorEstimate(float** data, const int* label, const LoquatCForest* loquat
 				effectiveNum++;
 			}
 
-			leafNode = GetArrivedLeafNode(loquatForest, i, data[indx]);
+			leafNode = GetArrivedLeafNode(ploquatTree, data[indx]);
 			if (NULL == leafNode)
 			{
 				rv = 0;   // 有错误产生，但不至于退出函数
@@ -3115,7 +3096,7 @@ int OOBErrorEstimateSequential(float **data, int *label, LoquatCForest *loquatFo
 		{
 			indx = pIndex[j];
 			//rv = PredictAnTestSampleOnOneTree(data[indx], variables_num, ploquatTree, predicted_class_index, confience);
-			leafNode = GetArrivedLeafNode(loquatForest, i, data[indx]);
+			leafNode = GetArrivedLeafNode(ploquatTree, data[indx]);
 			if( NULL == leafNode )
 			{
 				rv = 0;
@@ -3257,7 +3238,7 @@ int ErrorOnTestSamples(float** data_test, const int* label_test, const int nTest
 
 		for (j = 0; j < nTestSamplesNum; j++)
 		{
-			leafNode = GetArrivedLeafNode(loquatForest, i, data_test[j]);
+			leafNode = GetArrivedLeafNode(ploquatTree, data_test[j]);
 			if (NULL == leafNode)
 			{
 				rv = 0;   // 有错误产生，但不至于退出函数
@@ -3312,7 +3293,7 @@ int ComputeWeightedMarginOnOneSample(float *data, int label, LoquatCForest *loqu
 
 	for ( i=0; i<ntrees; i++ )
 	{
-		leafNode = GetArrivedLeafNode(loquatForest, i, data);
+		leafNode = GetArrivedLeafNode(loquatForest->loquatTrees[i], data);
 		if( NULL == leafNode )
 		{
 			rv = 0;   // 有错误产生，但不至于退出函数
@@ -3364,7 +3345,7 @@ int ComputeVotingMarginOnOneSample(float *data, int label, LoquatCForest *loquat
 
 	for ( i=0; i<ntrees; i++ )
 	{
-		leafNode = GetArrivedLeafNode(loquatForest, i, data);
+		leafNode = GetArrivedLeafNode(loquatForest->loquatTrees[i], data);
 		if( NULL == leafNode )
 		{
 			rv = 0;   // 有错误产生，但不至于退出函数
@@ -3416,7 +3397,7 @@ int ComputeVotingOOBMarginOnOneSample(float* data, int label, int index, LoquatC
 		if (false == isOOB)
 			continue;
 		oob_trees++;
-		leafNode = GetArrivedLeafNode(loquatForest, i, data);
+		leafNode = GetArrivedLeafNode(loquatForest->loquatTrees[i], data);
 		if (NULL == leafNode)
 		{
 			rv = 0;   // 有错误产生，但不至于退出函数
