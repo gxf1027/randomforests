@@ -21,6 +21,35 @@ using namespace std;
 
 //#define new new(_CLIENT_BLOCK, __FILE__, __LINE__)
 
+LoquatRTreeNode::~LoquatRTreeNode()
+{
+	delete [] samples_index;
+
+	if (pSubNode != NULL)
+	{
+		delete pSubNode[0];
+		delete pSubNode[1];
+	}
+
+	delete [] pSubNode;
+
+	if (pLeafNodeInfo != NULL)
+	{
+		delete[] pLeafNodeInfo->MeanOfArrived;
+
+		if (pLeafNodeInfo->CovMatOfArrived)
+		{
+			const int dim = pLeafNodeInfo->dimension;
+			for (int i = 0; i < dim; i++)
+				delete[] pLeafNodeInfo->CovMatOfArrived[i];
+			delete[] pLeafNodeInfo->CovMatOfArrived;
+		}
+		
+		delete[] pLeafNodeInfo->linearPredictor;
+		delete pLeafNodeInfo;
+	}
+}
+
 void UseDefaultSettingsForRFs(RandomRForests_info &RF_info)
 {
 	RF_info.ntrees = 200;
@@ -835,7 +864,7 @@ int _SplitOnRLoquatNodeCompletelySearchBySort2D(float** data, float* target, int
 
 		// ≈≈–Ú
 		struct {
-			bool operator()(var_id a, var_id b) const
+			bool operator()(var_id& a, var_id& b) const
 			{
 				return a.var < b.var;
 			}
@@ -1148,7 +1177,7 @@ int SplitOnRNodeCompletelySearchBySortMSE(float** data, float* target, const int
 
 		// ≈≈–Ú
 		struct {
-			bool operator()(var_id a, var_id b) const
+			bool operator()(var_id& a, var_id& b) const
 			{
 				return a.var < b.var;
 			}
@@ -2550,86 +2579,12 @@ int TrainRandomForestRegressor(float **data, float *target, RandomRForests_info 
 	return rv;
 }
 
-int HarvestOneLeafNode(struct LoquatRTreeNode **treeNode)
-{
-	if( (*treeNode) == NULL )
-		return 1;
-
-	if( (*treeNode)->samples_index != NULL )
-	{
-		delete [] (*treeNode)->samples_index;
-		(*treeNode)->samples_index = NULL;
-		(*treeNode)->arrival_samples_num = 0;
-	}
-
-	if( (*treeNode)->pSubNode != NULL )
-	{
-		delete [] (*treeNode)->pSubNode;
-		(*treeNode)->pSubNode = NULL;
-	}
-
-	if( (*treeNode)->nodetype == enLeafNode && (*treeNode)->pLeafNodeInfo )
-	{
-		if( (*treeNode)->pLeafNodeInfo->CovMatOfArrived )
-		{
-			int dim = (*treeNode)->pLeafNodeInfo->dimension;
-			for( int i=0; i<dim; i++ )
-				delete [] (*treeNode)->pLeafNodeInfo->CovMatOfArrived[i];
-			delete [] (*treeNode)->pLeafNodeInfo->CovMatOfArrived;
-		}
-		if( (*treeNode)->pLeafNodeInfo->MeanOfArrived )
-			delete [] (*treeNode)->pLeafNodeInfo->MeanOfArrived;
-		if ((*treeNode)->pLeafNodeInfo->linearPredictor)
-			delete [] (*treeNode)->pLeafNodeInfo->linearPredictor;
-		delete (*treeNode)->pLeafNodeInfo; //0519!!!
-	}
-
-	delete *treeNode;
-	*treeNode = NULL;
-
-	return 1;
-}
-
-//void VisitAndHarvestNodes_PostOrder(struct LoquatRTreeNode **pNode)
-//{
-//	if( (*pNode) == NULL )
-//		return;
-//
-//	if( (*pNode)->pSubNode[0] != NULL || (*pNode)->pSubNode[1] != NULL )
-//	{
-//		VisitAndHarvestNodes_PostOrder(&((*pNode)->pSubNode[0]));
-//		VisitAndHarvestNodes_PostOrder(&((*pNode)->pSubNode[1]));
-//		HarvestOneLeafNode(pNode);
-//	}
-//	else
-//	{
-//		HarvestOneLeafNode(pNode);
-//	}
-//}
-
-// 2021-04-09
-void VisitAndHarvestNodes_PostOrder(struct LoquatRTreeNode** pNode)
-{
-	if ((*pNode) == NULL)
-		return;
-
-	if ((*pNode)->pSubNode == NULL)
-		return;
-
-	VisitAndHarvestNodes_PostOrder(&((*pNode)->pSubNode[0]));
-	VisitAndHarvestNodes_PostOrder(&((*pNode)->pSubNode[1]));
-
-	HarvestOneLeafNode(pNode);
-}
-
 int HarvestOneRLoquatTreeRecursively(struct LoquatRTreeStruct **loquatTree)
 {
 	if( (*loquatTree) == NULL )
 		return 1;
 
-	struct LoquatRTreeNode *pNode = (*loquatTree)->rootNode;
-
-	VisitAndHarvestNodes_PostOrder(&pNode);
+	delete (*loquatTree)->rootNode;
 
 	if( (*loquatTree)->inbag_samples_index != NULL )
 	{
@@ -3053,44 +3008,44 @@ int MSEOnOutOfBagSamples(float **data, float *target, LoquatRForest *loquatFores
 //	return 1;
 //}
 
-int HarvestOneRLoquatTree2(struct LoquatRTreeStruct **loquatTree)
-{
-	if( (*loquatTree) == NULL )
-		return 1;
-
-	if( (*loquatTree)->inbag_samples_index != NULL )
-	{
-		delete [] (*loquatTree)->inbag_samples_index;
-		(*loquatTree)->inbag_samples_index = NULL;
-		(*loquatTree)->inbag_samples_num = 0;
-	}
-
-	if( (*loquatTree)->outofbag_samples_index != NULL )
-	{
-		delete [] (*loquatTree)->outofbag_samples_index;
-		(*loquatTree)->outofbag_samples_index = NULL;
-		(*loquatTree)->outofbag_samples_num = 0;
-	}
-
-	// ≤„–Ú±È¿˙
-	deque<LoquatRTreeNode *> dq;
-	dq.push_back((*loquatTree)->rootNode);
-	LoquatRTreeNode *tmpNode = NULL;
-	while(!dq.empty())
-	{
-		tmpNode = dq.front();
-		if( tmpNode->pSubNode[0] )
-			dq.push_back(tmpNode->pSubNode[0]);
-		if( tmpNode->pSubNode[1] )
-			dq.push_back(tmpNode->pSubNode[1]);
-		dq.pop_front();
-		HarvestOneLeafNode(&tmpNode);
-	}
-
-	*loquatTree = NULL;
-
-	return 1;
-}
+//int HarvestOneRLoquatTree2(struct LoquatRTreeStruct **loquatTree)
+//{
+//	if( (*loquatTree) == NULL )
+//		return 1;
+//
+//	if( (*loquatTree)->inbag_samples_index != NULL )
+//	{
+//		delete [] (*loquatTree)->inbag_samples_index;
+//		(*loquatTree)->inbag_samples_index = NULL;
+//		(*loquatTree)->inbag_samples_num = 0;
+//	}
+//
+//	if( (*loquatTree)->outofbag_samples_index != NULL )
+//	{
+//		delete [] (*loquatTree)->outofbag_samples_index;
+//		(*loquatTree)->outofbag_samples_index = NULL;
+//		(*loquatTree)->outofbag_samples_num = 0;
+//	}
+//
+//	// ≤„–Ú±È¿˙
+//	deque<LoquatRTreeNode *> dq;
+//	dq.push_back((*loquatTree)->rootNode);
+//	LoquatRTreeNode *tmpNode = NULL;
+//	while(!dq.empty())
+//	{
+//		tmpNode = dq.front();
+//		if( tmpNode->pSubNode[0] )
+//			dq.push_back(tmpNode->pSubNode[0]);
+//		if( tmpNode->pSubNode[1] )
+//			dq.push_back(tmpNode->pSubNode[1]);
+//		dq.pop_front();
+//		HarvestOneLeafNode(&tmpNode);
+//	}
+//
+//	*loquatTree = NULL;
+//
+//	return 1;
+//}
 
 int ReleaseRegressionForest(LoquatRForest **loquatForest)
 {

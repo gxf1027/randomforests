@@ -68,6 +68,7 @@ struct LoquatRTreeNode
 	float train_impurity;
 
 	LeafNodeInfo *pLeafNodeInfo;
+	virtual ~LoquatRTreeNode();
 };
 
 struct LoquatRTreeStruct
