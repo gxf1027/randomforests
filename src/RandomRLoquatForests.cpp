@@ -1383,9 +1383,11 @@ int _SplitOnRLoquatNode(float** data, const float* target, const int variables_n
 // 			ofstream lrecord("left.txt");
 // 			ofstream rrecord("right.txt");
 
+			const float* ptr;
 			for (int t = 0; t < innode_num; t++)
 			{
 				index = innode_samples_index[t];
+				ptr = &target[index * variables_num_y];
 				if (data[index][selSplitIndex] <= splitv)
 				{
 					//
@@ -1396,9 +1398,9 @@ int _SplitOnRLoquatNode(float** data, const float* target, const int variables_n
 					lcount++;
 					for (m = 0; m < variables_num_y; m++)
 					{
-						lMean[m] += target[index * variables_num_y + m];
+						lMean[m] += ptr[m];
 						for (n = 0; n < variables_num_y; n++)
-							lCov[m][n] += 1.0 * target[index * variables_num_y + m] * target[index * variables_num_y + n];
+							lCov[m][n] += 1.0 * ptr[m] * ptr[n];
 					}
 				}
 				else
@@ -1411,9 +1413,9 @@ int _SplitOnRLoquatNode(float** data, const float* target, const int variables_n
 					rcount++;
 					for (m = 0; m < variables_num_y; m++)
 					{
-						rMean[m] += target[index * variables_num_y + m];
+						rMean[m] += ptr[m];
 						for (n = 0; n < variables_num_y; n++)
-							rCov[m][n] += 1.0 * target[index * variables_num_y + m] * target[index * variables_num_y + n];
+							rCov[m][n] += 1.0 * ptr[m] * ptr[n];
 					}
 				}
 
@@ -1431,13 +1433,11 @@ int _SplitOnRLoquatNode(float** data, const float* target, const int variables_n
 				continue;
 			}
 
-			int ld = (lcount == 0) ? 1 : lcount;
-			int rd = (rcount == 0) ? 1 : rcount;
 			for (m = 0; m < variables_num_y; m++)
 				for (n = 0; n < variables_num_y; n++)
 				{
-					lCov[m][n] = (lCov[m][n] - lMean[m] * lMean[n] / ld) / ld;  // 0513增加 /ld
-					rCov[m][n] = (rCov[m][n] - rMean[m] * rMean[n] / rd) / rd;  // 0513增加 /rd
+					lCov[m][n] = (lCov[m][n] - lMean[m] * lMean[n] / lcount) / lcount;  // 0513增加 /ld
+					rCov[m][n] = (rCov[m][n] - rMean[m] * rMean[n] / rcount) / rcount;  // 0513增加 /rd
 				}
 
 			/*detl = CalculateDeterminant(lCov, variables_num_y);
@@ -1586,13 +1586,19 @@ int _SplitOnRLoquatNode1D(float** data, const float* target, const int variables
 
 			}
 
+
+			if (0 == lcount || 0 == rcount)
+			{
+				++counter;
+				splitv += step;
+				continue;
+			}
+
 			// COV = ∑XX_T - n*X_hat*X_hat_T
 			// now lCov,rCov = ∑XX_T, lMean,rMean = n*X_hat;
-			const int ld = (lcount == 0) ? 1 : lcount;
-			const int rd = (rcount == 0) ? 1 : rcount;
 
-			lVar = (lVar - lMean * lMean / ld) / ld; // 0513 增加/ld
-			rVar = (rVar - rMean * rMean / rd) / rd; // 0513 增加/rd
+			lVar = (lVar - lMean * lMean / lcount) / lcount; // 0513 增加/ld
+			rVar = (rVar - rMean * rMean / rcount) / rcount; // 0513 增加/rd
 
 			gini_like = (lcount * lVar + rcount * rVar) / innode_num; // lcount+rcount == innode_num
 
@@ -1815,8 +1821,6 @@ int _SplitExtremelyRandom(float **data, float *target, int variables_num_x, int 
 
 		var_index = selSplitIndex[j];
 
-		//bfindSplitV = true;
-
 		for (int t=0; t<variables_num_y; t++)
 		{
 			memset(lCov[t], 0, sizeof(double)*variables_num_y); // 对二维数组的初始化是否合适?
@@ -1860,16 +1864,15 @@ int _SplitExtremelyRandom(float **data, float *target, int variables_num_x, int 
 		if (0 == lcount || 0 == rcount)
 			continue;
 
-		int ld = (lcount==0) ? 1 : lcount;
-		int rd = (rcount==0) ? 1 : rcount;
+		
 		for( m=0; m<variables_num_y; m++ )
 			for( n=0; n<variables_num_y; n++ )
 			{
-				lCov[m][n] = (lCov[m][n] - lMean[m]*lMean[n]/ld)/ld; // 0513 增加 /ld
-				rCov[m][n] = (rCov[m][n] - rMean[m]*rMean[n]/rd)/rd; // 0513 增加 /rd
+				lCov[m][n] = (lCov[m][n] - lMean[m]*lMean[n]/lcount)/lcount; // 0513 增加 /ld
+				rCov[m][n] = (rCov[m][n] - rMean[m]*rMean[n]/rcount)/rcount; // 0513 增加 /rd
 			}
 
-			detl = variables_num_y == 1 ? lCov[0][0] : CalculateDeterminant(lCov, variables_num_y) + 1e-38; // 以防止det为0使log(0)发生
+			detl = variables_num_y == 1 ? lCov[0][0] : CalculateDeterminant(lCov, variables_num_y) + 1e-38; 
 			detr = variables_num_y == 1 ? rCov[0][0] : CalculateDeterminant(rCov, variables_num_y) + 1e-38;
 
 			gini_like = (lcount*detl+rcount*detr)/innode_num;
@@ -1976,7 +1979,8 @@ void CalculateLeafNodeInformation(float **data, float *target, const int *sample
 		pLeafNodeInfo->MeanOfArrived[j] /= (float)arrivedNum;
 	for( j=0; j<variable_num_y; j++ )
 		for( k=0; k<variable_num_y; k++ )
-			pLeafNodeInfo->CovMatOfArrived[j][k] -= 1.0*arrivedNum * pLeafNodeInfo->MeanOfArrived[j] * pLeafNodeInfo->MeanOfArrived[k];	
+			//pLeafNodeInfo->CovMatOfArrived[j][k] -= 1.0*arrivedNum * pLeafNodeInfo->MeanOfArrived[j] * pLeafNodeInfo->MeanOfArrived[k];	
+			pLeafNodeInfo->CovMatOfArrived[j][k] = pLeafNodeInfo->CovMatOfArrived[j][k]/arrivedNum - 1.0 * pLeafNodeInfo->MeanOfArrived[j] * pLeafNodeInfo->MeanOfArrived[k];
 
 
 	// 2021-04-20
@@ -2066,32 +2070,6 @@ void CalculateLeafNodeInformation(float **data, float *target, const int *sample
 		}
 	}
 }
-
-//int ClearAllocatedMemoryDuringRTraining(struct LoquatRTreeNode* treeNode)
-//{
-//	if (NULL == treeNode)
-//	{
-//		return 0;
-//	}
-//	// clear left subnode
-//	ClearAllocatedMemoryDuringRTraining(treeNode->pSubNode[0]);
-//	// clear right subnode
-//	ClearAllocatedMemoryDuringRTraining(treeNode->pSubNode[1]);
-//	// clear  this node
-//	delete[] treeNode->samples_index;
-//	treeNode->samples_index = NULL;
-//	treeNode->arrival_samples_num = 0;
-//	return 1;
-//}
-//
-//int ClearAllocatedMemoryDuringRTraining(struct LoquatRTreeStruct* loquatTree)
-//{
-//	if (NULL == loquatTree)
-//	{
-//		return 0;
-//	}
-//	return ClearAllocatedMemoryDuringRTraining(loquatTree->rootNode);
-//}
 
 
 // 2021-04-07
@@ -2500,7 +2478,7 @@ int TrainRandomForestRegressor(float **data, float *target, RandomRForests_info 
 	}
 
 	float *target_inner = NULL;
-	if( bTargetNormalize == true && RFinfo.datainfo.variables_num_y > 1 ) // 如果响应是1维的，那么即使用户要求归一化也不归一化
+	if( bTargetNormalize == true ) 
 	{
 		int i,j;
 		loquatForest->bTargetNormalize = true;
@@ -2549,7 +2527,7 @@ int TrainRandomForestRegressor(float **data, float *target, RandomRForests_info 
 	for (int i=0; i< ntrees; i++ )
 	{
 
-		float* tgt = NULL == target_inner ? target : target_inner;
+		float* tgt = (NULL == target_inner) ? target : target_inner;
 		rv = GrowRandomizedRLoquatTreeRecursively(data, tgt, RFinfo, loquatForest->loquatTrees[i]);
 
 		if (trace > 0 && (i + 1) % trace == 0)
@@ -2830,11 +2808,13 @@ int MSEOnOutOfBagSamples(float **data, float *target, LoquatRForest *loquatFores
 				if (det <= 0)
 					det = 1e-20;
 				if (nMethod == 1)
-					w = float(100.0 / det);
+					//w = float(100.0 / det);
+					w = exp(-10000.0*det);
 				else if (nMethod == 2)
 				{
-					w = float(det / pLeafNode->pLeafNodeInfo->arrivedRatio + 1e-15);
-					w = float(100.0 / w);
+					//w = float(det / pLeafNode->pLeafNodeInfo->arrivedRatio + 1e-15);
+					//w = float(100.0 / w);
+					w = pLeafNode->arrival_samples_num * exp(-10000.0 * det);
 				}
 				weight_sum[index] += w;
 				for (j = 0; j < variables_num_y; j++)
