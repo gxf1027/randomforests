@@ -31,7 +31,7 @@ int main(int argc, char** argv)
 	rfinfo.predictionModel = PredictionModel::constant;
 	// train forest
 	LoquatRForest* loquatRForest = NULL;
-	rv = TrainRandomForestRegressor(data, target, rfinfo, loquatRForest /*OUT*/, false, 20);
+	rv = TrainRandomForestRegressor(data, target, rfinfo, loquatRForest /*OUT*/, false, -1/*random state*/, 20);
 	// check the return value
 	// 	... ...
 

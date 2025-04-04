@@ -30,7 +30,7 @@ int main(int argc, char** argv)
 	rfinfo.randomness = 1;
 	// train forest
 	LoquatCForest* loquatCForest = NULL;
-	rv = TrainRandomForestClassifier(data, label, rfinfo, loquatCForest /*OUT*/, 20);
+	rv = TrainRandomForestClassifier(data, label, rfinfo, loquatCForest /*OUT*/, -1/*random_state*/, 20);
 	// check the return value
 	// 	... ...
 
