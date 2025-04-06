@@ -203,7 +203,8 @@ int ErrorOnTestSamples(float** data_test, const int* label_test, const int nTest
 	return 1;
 }
 
-// sample-first
+#if 0
+// sample-first: less effient than 'tree-firest'(ErrorOnTestSamples) method
 int ErrorOnTestSamples2(float** data_test, const int* label_test, const int nTestSamplesNum, const CompactForest* forest, float& error_rate)
 {
 	const int class_num = forest->rfinfo.datainfo.classes_num;
@@ -254,3 +255,4 @@ int ErrorOnTestSamples2(float** data_test, const int* label_test, const int nTes
 
 	return 1;
 }
+#endif

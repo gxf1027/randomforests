@@ -2943,7 +2943,12 @@ int PredictAnTestSampleOnOneTree(float *data, const int variables_num, struct Lo
 
 		assert(pNode->split_variable_index < variables_num && pNode->split_variable_index >=0);
 
-		pNode = pNode->pSubNode[pNode->traverse(data)];
+		//pNode = pNode->pSubNode[pNode->traverse(data)];
+
+		if (data[pNode->split_variable_index] <= pNode->split_value)
+			pNode = pNode->pSubNode[0];
+		else
+			pNode = pNode->pSubNode[1];
 
 		cc++;
 		if( cc>max_depth_index )
@@ -2967,7 +2972,11 @@ const struct LoquatCTreeNode *GetArrivedLeafNode(const LoquatCTreeStruct* tree, 
 		if( pNode->nodetype == TreeNodeType::LEAF_NODE )
 			return pNode;
 
-		pNode = pNode->pSubNode[pNode->traverse(data)];
+		//pNode = pNode->pSubNode[pNode->traverse(data)];
+		if (data[pNode->split_variable_index] <= pNode->split_value)
+			pNode = pNode->pSubNode[0];
+		else
+			pNode = pNode->pSubNode[1];
 
 		if( (++depth) > max_depth_index )
 			break;

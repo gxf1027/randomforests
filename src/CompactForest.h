@@ -27,7 +27,6 @@ typedef struct CompactForest {
 */
 CompactForest* toCompactForest(LoquatCForest* forest);
 int ErrorOnTestSamples(float** data_test, const int* label_test, const int nTestSamplesNum, const CompactForest* forest, float& error_rate);
-int ErrorOnTestSamples2(float** data_test, const int* label_test, const int nTestSamplesNum, const CompactForest* forest, float& error_rate);
 void ReleaseCompactForest(CompactForest** forest);
 
 #endif
