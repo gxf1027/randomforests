@@ -36,13 +36,13 @@ CompactForest* toCompactForest(LoquatCForest* forest)
 				const struct LoquatCTreeNode* const pNode = (*it);
 				switch (pNode->nodetype)
 				{
-				case TreeNodeTpye::enLinkNode:
-				case TreeNodeTpye::enRootNode:
+				case TreeNodeType::LINK_NODE:
+				case TreeNodeType::ROOT_NODE:
 					compactForest->nodes_of_tree[t]++;
 					break;
 				}
 
-				if (TreeNodeTpye::enLeafNode == pNode->nodetype)
+				if (TreeNodeType::LEAF_NODE == pNode->nodetype)
 				{
 					continue;
 				}
@@ -87,10 +87,10 @@ CompactForest* toCompactForest(LoquatCForest* forest)
 			{
 				pNode = nodes_this_level[k];
 
-				if (pNode->nodetype == enLeafNode)
+				if (pNode->nodetype == TreeNodeType::LEAF_NODE)
 					assert(0);
 
-				if (pNode->pSubNode[0]->nodetype == enLeafNode)
+				if (pNode->pSubNode[0]->nodetype == TreeNodeType::LEAF_NODE)
 				{
 					this_tree[index].left_index = node_num + pNode->pSubNode[0]->leaf_node_label;
 				}
@@ -99,7 +99,7 @@ CompactForest* toCompactForest(LoquatCForest* forest)
 					this_tree[index].left_index = start + this_level_size + (nodes_next_level.size() - 1);
 				}
 
-				if (pNode->pSubNode[1]->nodetype == enLeafNode)
+				if (pNode->pSubNode[1]->nodetype == TreeNodeType::LEAF_NODE)
 				{
 					this_tree[index].right_index = node_num + pNode->pSubNode[1]->leaf_node_label;
 				}

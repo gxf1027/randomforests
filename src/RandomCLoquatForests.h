@@ -51,25 +51,27 @@ typedef struct
 
 struct LoquatCTreeNode
 {
-	enum TreeNodeTpye nodetype;
-	int depth;
+	enum TreeNodeType nodetype;
+	int depth = 0;
 
-	int arrival_samples_num;
-	int *samples_index;
+	int arrival_samples_num = 0;
+	int *samples_index = NULL;
 
-	int split_variable_index;
-	float split_value;
+	int split_variable_index = -1;
+	float split_value = 0.f;
 
-	struct LoquatCTreeNode *pParentNode;
-	struct LoquatCTreeNode **pSubNode;	
-	int subnodes_num;
+	struct LoquatCTreeNode *pParentNode = NULL;
+	struct LoquatCTreeNode **pSubNode = NULL;	
+	int subnodes_num = 0;
 
-	float train_impurity;
-	float *class_distribution;
+	float train_impurity = 0.f;
+	float *class_distribution = NULL;
 
-	int leaf_node_label;
-	float leaf_confidence;
+	int leaf_node_label = -1;
+	float leaf_confidence = 0.f;
 
+	LoquatCTreeNode() {};
+	LoquatCTreeNode(TreeNodeType type, int depth, int arrival_samples_num, int *index, int class_num, const int* labels);
 	virtual int traverse(float* data) { return data[split_variable_index] <= split_value ? 0 : 1; }
 	virtual ~LoquatCTreeNode();
 };
@@ -84,6 +86,7 @@ struct LoquatCTreeStruct
 	int depth;						// the largest depth index, from 0 
 	int leaf_node_num;
 	struct LoquatCTreeNode *rootNode;
+	~LoquatCTreeStruct();
 };
 
 typedef struct LoquatCForestSturct
@@ -252,14 +255,14 @@ Description:	Calculate proximities between the i-th sample and every other sampl
 [in]			1. forest:		a random classification forest
 				2. data:		with which the 'forest' has been trained
 				3. index_i:		the sample index in 'data'. Proximities are calculated between data[index_i] and every other sample in dataset
-				4. type:		type of proximity, PROXIMITY_TYPE::PROX_ORIGINAL(original RF proximity) or PROXIMITY_TYPE::PROX_GEO_ACC(TPAMI 2023 GAP)
+				4. type:		type of proximity, ProximityType::PROX_ORIGINAL(original RF proximity) or ProximityType::PROX_GEO_ACC(TPAMI 2023 GAP)
 [out]			proximities:	a pointer to the 1D array, with the dimension samples_num*1.
 return:			1  -- success
 				-1 -- i-th sample is not a out-of-bag sample for every tree in forest. Possible when the number of trees is small.
 
 Reference:		'Jake S.Rhodes, Adele Cutler, Kevin R. Moon. Geometry- and Accuracy-Preserving Random Forest Proximities. TPAMI,2023.'
 */
-int ClassificationForestProximity(LoquatCForest* forest, float** data, const int index_i, PROXIMITY_TYPE type, float*& proximities);
+int ClassificationForestProximity(LoquatCForest* forest, float** data, const int index_i, ProximityType type, float*& proximities);
 
 /*
 Description:    Compute raw outlier measurement using RF-GAP.

@@ -233,7 +233,7 @@ int main(int argc, char** argv)
 	{
 	case 1:
 		trace = RFinfo_R.ntrees <= 100 ? 10 : (RFinfo_R.ntrees < 500 ? 20 : 50);
-		rv = TrainRandomForestRegressor(data, target, RFinfo_R, loquatRForest, false, trace);
+		rv = TrainRandomForestRegressor(data, target, RFinfo_R, loquatRForest, false, -1, trace);
 		cout << "Train Regression Forests Successfully." << endl;
 		cout << "time consumption:" << timeIt(0) << endl;
 		MSEOnOutOfBagSamples(data, target, loquatRForest, mean_squared_error);
@@ -248,7 +248,7 @@ int main(int argc, char** argv)
 	case 0:
 	default:
 		trace = RFinfo_C.ntrees <= 100 ? 10 : (RFinfo_C.ntrees < 500 ? 20 : 50);
-		rv = TrainRandomForestClassifier(data, label, RFinfo_C, loquatCForest, trace);
+		rv = TrainRandomForestClassifier(data, label, RFinfo_C, loquatCForest, -1, trace);
 		cout << "Train Classification Forests Successfully." << endl;
 		cout << "time consumption:" << timeIt(0) << endl;
 		float error_rate = -1.f;

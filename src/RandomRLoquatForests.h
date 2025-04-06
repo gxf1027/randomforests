@@ -52,7 +52,7 @@ typedef struct _LeafNodeInfo
 
 struct LoquatRTreeNode
 {
-	enum TreeNodeTpye nodetype;
+	enum TreeNodeType nodetype;
 	int depth;
 
 	int arrival_samples_num;

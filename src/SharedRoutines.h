@@ -5,7 +5,7 @@
 
 extern unsigned int g_random_seed;
 
-enum TreeNodeTpye { enRootNode=0, enLinkNode=1, enLeafNode=2 };
+enum class TreeNodeType: int { ROOT_NODE=0, LINK_NODE=1, LEAF_NODE=2 };
 
 //enum RFError {
 //	RF_SUCCESS = 0,
@@ -16,18 +16,18 @@ enum TreeNodeTpye { enRootNode=0, enLinkNode=1, enLeafNode=2 };
 //	RF_OTHER_ERROR
 //};
 
-enum RF_TREE_RANDOMNESS 
+enum class RandomnessLevel: int
 {
-	TREE_RANDOMNESS_WEAK = 1,
-	TREE_RANDOMNESS_MODERATE = 2,
-	TREE_RANDOMNESS_STRONG = 3
+	WEAK = 1,
+	MODERATE = 2,
+	STRONG = 3
 };
 
-typedef enum PROXIMITY_TYPE
+enum class ProximityType: int
 {
 	PROX_ORIGINAL = 1,
 	PROX_GEO_ACC = 2
-}PROXIMITY_TYPE;
+};
 
 /*
 Description: Returns the time (ms) elapsed between two calls to this function

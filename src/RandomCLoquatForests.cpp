@@ -33,7 +33,6 @@ using namespace std;
 #define STOP_CRITERION_MIN_GINI_IMPURITY	0.01    // 这个参数变小(0.1->0.01)可以显著提高分类准确率
 #define DEFAULT_MAX_TREE_DEPTH_C			40
 #define DEFAULT_MIN_SAMPLES_C				5
-#define GROW_DEEPER_FOR_PROXIMITY			8124
 #define NODE_NUM_TO_GROW_DEEPER				50
 //#define new  new(_CLIENT_BLOCK, __FILE__, __LINE__)
 
@@ -51,6 +50,49 @@ struct _GrowNodeInput
 };
 typedef struct _GrowNodeInput GrowNodeInput;
 
+void MaximumConfienceClassLabel(const int* index, const int* label, const int sample_num, const int class_num, float* &class_distribution, int& node_label, float& max_confidence)
+{
+	memset(class_distribution, 0, sizeof(float) * class_num);
+	for (int i = 0; i < sample_num; i++)
+		class_distribution[label[index[i]]] += 1.0f;
+
+	class_distribution[0] = class_distribution[0] / sample_num;
+	max_confidence = class_distribution[0];
+	node_label = 0;
+	for (int c = 1; c < class_num; c++)
+	{
+		class_distribution[c] /= sample_num;
+		if (class_distribution[c] > max_confidence)
+		{
+			max_confidence = class_distribution[c];
+			node_label = c;
+		}
+	}
+}
+LoquatCTreeNode::LoquatCTreeNode(TreeNodeType type, int depth, int arrival_samples_num, int* index, int class_num, const int* labels) 
+	:nodetype(type), depth(depth), arrival_samples_num(arrival_samples_num), pParentNode(NULL),subnodes_num(2), train_impurity(0.f), class_distribution(NULL),
+	leaf_node_label(-1), leaf_confidence(0.f),split_value(0.f), split_variable_index(-1)
+{
+	pSubNode = new struct LoquatCTreeNode* [2];
+	pSubNode[0] = NULL;
+	pSubNode[1] = NULL;
+
+	switch (nodetype)
+	{
+	case TreeNodeType::ROOT_NODE:
+	case TreeNodeType::LINK_NODE:
+		samples_index = NULL;// !!!
+		break;
+	case TreeNodeType::LEAF_NODE:
+		samples_index = new int[arrival_samples_num];
+		memcpy(samples_index, index, sizeof(int) * arrival_samples_num);
+		class_distribution = new float[class_num];
+		MaximumConfienceClassLabel(index, labels, arrival_samples_num, class_num, class_distribution/*OUT*/, leaf_node_label/*OUT*/, leaf_confidence/*OUT*/);
+		break;
+	default:
+		break;
+	}
+}
 
 LoquatCTreeNode::~LoquatCTreeNode()
 {
@@ -63,6 +105,13 @@ LoquatCTreeNode::~LoquatCTreeNode()
 		delete pSubNode[1];
 	}
 	delete pSubNode;
+}
+
+LoquatCTreeStruct::~LoquatCTreeStruct()
+{
+	delete[] inbag_samples_index;
+	delete[] outofbag_samples_index;
+	delete rootNode;
 }
 
 
@@ -152,7 +201,7 @@ void UseDefaultSettingsForRFs(RandomCForests_info &RF_info)
 	if( RF_info.mvariables < 1 )
 		RF_info.mvariables = 1;
 	RF_info.minsamplessplit = DEFAULT_MIN_SAMPLES_C;
-	RF_info.randomness = TREE_RANDOMNESS_WEAK; // RF_TREE_RANDOMNESS::TREE_RANDOMNESS_WEAK;
+	RF_info.randomness = static_cast<int>(RandomnessLevel::WEAK);
 	RF_info.maxdepth = DEFAULT_MAX_TREE_DEPTH_C;
 }
 
@@ -1405,10 +1454,6 @@ typedef struct value_index {
 	float value;
 	int index;
 }value_index;
-int _cmp_val(const void* a, const void* b)
-{
-	return ((value_index*)a)->value > ((value_index*)b)->value ? 1 : -1;
-}
 
 // data SHOULD be normalized or standardization in advance
 int SplitNodeUnsupervisedly(float** data, int variables_num, const int* innode_samples_index, int innode_num, int Mvariable, int& split_variable_index, float& split_value)
@@ -1457,7 +1502,13 @@ int SplitNodeUnsupervisedly(float** data, int variables_num, const int* innode_s
 			vts[k].index = index;
 		}
 
-		qsort(vts, innode_num, sizeof(value_index), _cmp_val);
+		struct {
+			bool operator()(const value_index& a, const value_index& b) const
+			{
+				return a.value < b.value;
+			}
+		} customComp;
+		std::sort(vts, vts+innode_num, customComp);
 
 		memset(targetSqrCum, 0, sizeof(double) * innode_num);
 		for (int y = 0; y < variables_num; y++)
@@ -1573,7 +1624,7 @@ int SplitNodeUnsupervisedly(float** data, int variables_num, const int* innode_s
 //		delete [] pPreNode;
 //		return 1;
 //	}
-//	else if( pPreNode[0]->nodetype == enLeafNode )
+//	else if( pPreNode[0]->nodetype == LEAF_NODE )
 //	{
 //		if( pPreNode[0]->samples_index !=NULL )
 //		{
@@ -1610,7 +1661,7 @@ int SplitNodeUnsupervisedly(float** data, int variables_num, const int* innode_s
 //				pCurNode[j*2] = NULL;
 //				pCurNode[j*2+1] = NULL;
 //			}
-//			else if( pPreNode[j]->nodetype == enLeafNode )
+//			else if( pPreNode[j]->nodetype == LEAF_NODE )
 //			{
 //				pCurNode[j*2] = NULL;
 //				pCurNode[j*2+1] = NULL;
@@ -1683,39 +1734,10 @@ struct LoquatCTreeNode* GrowLoquatCTreeNodeRecursively(float** data, int* label,
 	int total_samples_num = pInputParam->total_samples_num;
 	int total_variables_num = pInputParam->total_variables_num;
 	int total_classes_num = pInputParam->total_classes_num;
-	struct LoquatCTreeNode* treeNode = new struct LoquatCTreeNode;
-	assert(NULL != treeNode);
-	treeNode->class_distribution = NULL;
-	treeNode->pParentNode = NULL;
-	treeNode->pSubNode = NULL;
-	treeNode->samples_index = NULL;
-
-	treeNode->depth = pInputParam->parent_depth + 1;
-
-	if (treeNode->depth == 0)
-		treeNode->nodetype = TreeNodeTpye::enRootNode;
-	else
-		treeNode->nodetype = TreeNodeTpye::enLinkNode;
-
-	treeNode->subnodes_num = 2;
-	treeNode->pParentNode = NULL;
-	treeNode->pSubNode = new struct LoquatCTreeNode* [2];
-	treeNode->pSubNode[0] = NULL;
-	treeNode->pSubNode[1] = NULL;
-	treeNode->split_value = 0.0f;
-	treeNode->split_variable_index = -1;
-	treeNode->train_impurity = 0;
-	treeNode->class_distribution = NULL;
-	treeNode->leaf_node_label = -1;
-	treeNode->leaf_confidence = 0;
-	treeNode->arrival_samples_num = arrival_num;
+	struct LoquatCTreeNode* treeNode = new struct LoquatCTreeNode(pInputParam->parent_depth+1 ==0 ? TreeNodeType::ROOT_NODE : TreeNodeType::LINK_NODE,
+																	pInputParam->parent_depth+1, 
+																	arrival_num, sample_arrival_index, total_classes_num, label);
 	treeNode->samples_index = sample_arrival_index;
-
-	/*if (0 == treeNode->depth)
-	{
-		treeNode->samples_index = new int [arrival_num];
-		memcpy(treeNode->samples_index, sample_arrival_index, arrival_num * sizeof(int));
-	}*/
 
 	// 以上用到达样本生成一个新节点，以下开始判断这个节点是否可以再分裂
 	AnalyzeTrainingSamplesArrivedAtOneNode(label, total_classes_num, treeNode->samples_index, treeNode->arrival_samples_num,
@@ -1735,12 +1757,10 @@ struct LoquatCTreeNode* GrowLoquatCTreeNodeRecursively(float** data, int* label,
 	}
 
 	bool isleaf = ((isLowImpurity || isMaxDepth) || (isFewSamples && !isEqualConf));
-	bool bGrowToGreaterDepth = pInputParam->maxDepth == GROW_DEEPER_FOR_PROXIMITY && 
-								isLowImpurity && arrival_num > NODE_NUM_TO_GROW_DEEPER;
 
-	if ( isleaf && !bGrowToGreaterDepth)
+	if ( isleaf )
 	{
-		treeNode->nodetype = TreeNodeTpye::enLeafNode;
+		treeNode->nodetype = TreeNodeType::LEAF_NODE;
 		treeNode->pSubNode[0] = NULL;
 		treeNode->pSubNode[1] = NULL;
 		loquatTree->leaf_node_num++;
@@ -1754,39 +1774,31 @@ struct LoquatCTreeNode* GrowLoquatCTreeNodeRecursively(float** data, int* label,
 		treeNode->leaf_node_label = -1;
 		treeNode->leaf_confidence = 0.f;
 
-		if (bGrowToGreaterDepth)
+		RandomnessLevel randomness = static_cast<RandomnessLevel>(pInputParam->randomness);
+		switch (randomness)
 		{
-			assert(isleaf);
-			SplitNodeUnsupervisedly(data, total_variables_num, treeNode->samples_index, treeNode->arrival_samples_num,
+		case RandomnessLevel::WEAK:
+			SplitOnDLoquatNodeCompletelySearch2(data, label, total_variables_num, total_classes_num,
+				treeNode->samples_index, treeNode->arrival_samples_num,
 				pInputParam->mvariables, treeNode->split_variable_index, treeNode->split_value);
-			//cout<<"go deeper: "<<treeNode->arrival_samples_num<<endl;
-		}
-		else {
-			switch (pInputParam->randomness)
-			{
-			case TREE_RANDOMNESS_WEAK:
-				SplitOnDLoquatNodeCompletelySearch2(data, label, total_variables_num, total_classes_num,
-					treeNode->samples_index, treeNode->arrival_samples_num,
-					pInputParam->mvariables, treeNode->split_variable_index, treeNode->split_value);
-				break;
-			case TREE_RANDOMNESS_MODERATE:
-				SplitOnDLoquatNode(data, label, total_variables_num, total_classes_num,
-					treeNode->samples_index, treeNode->arrival_samples_num,
-					pInputParam->mvariables, treeNode->split_variable_index, treeNode->split_value);
-				break;
-			case TREE_RANDOMNESS_STRONG:
-				SplitOnDLoquateNodeExtremeRandomly(data, label, total_variables_num, total_classes_num,
-					treeNode->samples_index, treeNode->arrival_samples_num,
-					pInputParam->mvariables, treeNode->split_variable_index, treeNode->split_value);
-				break;
+			break;
+		case RandomnessLevel::MODERATE:
+			SplitOnDLoquatNode(data, label, total_variables_num, total_classes_num,
+				treeNode->samples_index, treeNode->arrival_samples_num,
+				pInputParam->mvariables, treeNode->split_variable_index, treeNode->split_value);
+			break;
+		case RandomnessLevel::STRONG:
+			SplitOnDLoquateNodeExtremeRandomly(data, label, total_variables_num, total_classes_num,
+				treeNode->samples_index, treeNode->arrival_samples_num,
+				pInputParam->mvariables, treeNode->split_variable_index, treeNode->split_value);
+			break;
 
 
-			default:
-				SplitOnDLoquatNode(data, label, total_variables_num, total_classes_num,
-					treeNode->samples_index, treeNode->arrival_samples_num,
-					pInputParam->mvariables, treeNode->split_variable_index, treeNode->split_value);
-				break;
-			}
+		default:
+			SplitOnDLoquatNode(data, label, total_variables_num, total_classes_num,
+				treeNode->samples_index, treeNode->arrival_samples_num,
+				pInputParam->mvariables, treeNode->split_variable_index, treeNode->split_value);
+			break;
 		}
 
 		int leftsubnode_samples_num = 0, rightsubnode_samples_num = 0;
@@ -1834,7 +1846,7 @@ struct LoquatCTreeNode* GrowLoquatCTreeNodeRecursively(float** data, int* label,
 		// 连ExtremelRandomSplit都没成功
 		if (0 == leftsubnode_samples_num || 0 == rightsubnode_samples_num)
 		{
-			treeNode->nodetype = TreeNodeTpye::enLeafNode;
+			treeNode->nodetype = TreeNodeType::LEAF_NODE;
 			loquatTree->leaf_node_num++;
 			treeNode->split_value = 0;
 			treeNode->split_variable_index = -1;
@@ -1873,16 +1885,16 @@ struct LoquatCTreeNode* GrowLoquatCTreeNodeRecursively(float** data, int* label,
 			loquatTree);
 
 		bool is_pruning = false;
-		if (is_pruning && treeNode->nodetype != enRootNode)
+		if (is_pruning && treeNode->nodetype != TreeNodeType::ROOT_NODE)
 		{
-			if (treeNode->pSubNode[0]->nodetype == enLeafNode && treeNode->pSubNode[1]->nodetype == enLeafNode)
+			if (treeNode->pSubNode[0]->nodetype == TreeNodeType::LEAF_NODE && treeNode->pSubNode[1]->nodetype == TreeNodeType::LEAF_NODE)
 			{
 				bool toprune = leftsubnode_samples_num == 1 || rightsubnode_samples_num == 1;
 				float ratio = leftsubnode_samples_num * 1.f / rightsubnode_samples_num;
 				toprune = toprune && (ratio >= 10.f || ratio <= 0.1f);
 				if (toprune)
 				{
-					treeNode->nodetype = TreeNodeTpye::enLeafNode;
+					treeNode->nodetype = TreeNodeType::LEAF_NODE;
 					HarvestOneLeafNode(&treeNode->pSubNode[0]);
 					HarvestOneLeafNode(&treeNode->pSubNode[1]);
 					loquatTree->leaf_node_num = loquatTree->leaf_node_num-1;
@@ -1901,12 +1913,12 @@ struct LoquatCTreeNode* GrowLoquatCTreeNodeRecursively(float** data, int* label,
 		treeNode->pSubNode[0]->pParentNode = treeNode;
 		treeNode->pSubNode[1]->pParentNode = treeNode;
 		
-		if (treeNode->pSubNode[0]->nodetype != TreeNodeTpye::enLeafNode)
+		if (treeNode->pSubNode[0]->nodetype != TreeNodeType::LEAF_NODE)
 		{
 			treeNode->pSubNode[0]->samples_index = NULL;
 			treeNode->pSubNode[0]->arrival_samples_num = 0;
 		}
-		if (treeNode->pSubNode[1]->nodetype != TreeNodeTpye::enLeafNode)
+		if (treeNode->pSubNode[1]->nodetype != TreeNodeType::LEAF_NODE)
 		{
 			treeNode->pSubNode[1]->samples_index = NULL;
 			treeNode->pSubNode[1]->arrival_samples_num = 0;
@@ -1989,7 +2001,6 @@ int GrowRandomizedCLoquatTreeRecursively(float **data, int *label, RandomCForest
 	loquatTree->rootNode->pParentNode = NULL;
 	loquatTree->rootNode->arrival_samples_num = 0;
 	loquatTree->rootNode->samples_index = NULL;
-	//ClearAllocatedMemoryDuringCTraining(loquatTree); // Clear some memory allocated for growing tree.
 
 	return 1;
 }
@@ -2450,6 +2461,168 @@ int RawVariableImportanceScore2OMP(float** data, int* label, LoquatCForest* loqu
 }
 #endif  // OPENMP_SPEEDUP
 
+
+struct LoquatCTreeNode* IncreasingTreeDepth(float** data, int* labels, int* index, const int sample_num, RandomCForests_info& rfinfo, struct LoquatCTreeStruct*& loquatTree, int parent_depth)
+{
+
+	if (sample_num <= 50 /*rfinfo.minsamplessplit*/)
+	{
+		loquatTree->leaf_node_num++;
+		struct LoquatCTreeNode* leaf = new LoquatCTreeNode(TreeNodeType::LEAF_NODE, parent_depth + 1, sample_num, index, rfinfo.datainfo.classes_num, labels);
+		return leaf;
+	}
+
+	Dataset_info_C datainfo = rfinfo.datainfo;
+
+	int split_variable_index = -1;
+	float split_value = 0.f;
+	SplitNodeUnsupervisedly(data, rfinfo.datainfo.variables_num, index, sample_num, rfinfo.mvariables, split_variable_index, split_value);
+
+	if (split_variable_index == -1)
+	{
+		loquatTree->leaf_node_num++;
+		struct LoquatCTreeNode* leaf = new LoquatCTreeNode(TreeNodeType::LEAF_NODE, parent_depth + 1, sample_num, index, datainfo.classes_num, labels);
+		return leaf;
+	}
+
+	struct LoquatCTreeNode* node = new LoquatCTreeNode(TreeNodeType::LINK_NODE, parent_depth + 1, sample_num, NULL, datainfo.classes_num, NULL);
+	node->split_variable_index = split_variable_index;
+	node->split_value = split_value;
+
+
+	int* samples_index_tmp = new int[sample_num];
+	float left_dis = FLT_MAX, right_dis = FLT_MAX;
+	int leftsubnode_samples_num = 0, rightsubnode_samples_num = 0;
+	for (int n = 0; n < sample_num; n++)
+	{
+		const int id = index[n];
+
+		if (data[id][split_variable_index] <= split_value)
+		{
+			samples_index_tmp[leftsubnode_samples_num] = id;
+			leftsubnode_samples_num++;
+		}
+		else
+		{
+			samples_index_tmp[sample_num - 1 - rightsubnode_samples_num] = id;
+			rightsubnode_samples_num++;
+		}
+	}
+	assert(leftsubnode_samples_num + rightsubnode_samples_num == sample_num);
+	assert(leftsubnode_samples_num > 0 && rightsubnode_samples_num > 0);
+
+	memcpy(index, samples_index_tmp, sizeof(int) * sample_num);
+	delete[] samples_index_tmp;
+
+	if (node->depth + 1 > loquatTree->depth)
+		loquatTree->depth = node->depth + 1;
+
+	node->pSubNode[0] = IncreasingTreeDepth(data, labels, index, leftsubnode_samples_num, rfinfo, loquatTree, node->depth);
+	node->pSubNode[1] = IncreasingTreeDepth(data, labels, index + leftsubnode_samples_num, rightsubnode_samples_num, rfinfo, loquatTree, node->depth);
+
+	node->pSubNode[0]->pParentNode = node;
+	node->pSubNode[1]->pParentNode = node;
+
+	if (node->pSubNode[0]->nodetype != TreeNodeType::LEAF_NODE)
+	{
+		node->pSubNode[0]->samples_index = NULL;
+		node->pSubNode[0]->arrival_samples_num = 0;
+	}
+	if (node->pSubNode[1]->nodetype != TreeNodeType::LEAF_NODE)
+	{
+		node->pSubNode[1]->samples_index = NULL;
+		node->pSubNode[1]->arrival_samples_num = 0;
+	}
+
+	return node;
+}
+
+int GrowGreaterDepth(LoquatCForest*& forest, float** data, int* label)
+{
+	const int ntrees = forest->RFinfo.ntrees;
+	omp_set_num_threads(8);
+#pragma omp parallel for
+	for (int t = 0; t < ntrees; t++)
+	{
+		std::cout << t << " ";
+		LoquatCTreeStruct* tree = forest->loquatTrees[t];
+		std::vector<LoquatCTreeNode*> leaves;
+
+		std::deque<LoquatCTreeNode*> nodes;
+		nodes.push_back(tree->rootNode);
+		LoquatCTreeNode* tmpNode = NULL;
+		int leaf_num = 0;
+		while (!nodes.empty())
+		{
+			tmpNode = nodes.front();
+			nodes.pop_front();
+
+			if (tmpNode->nodetype != TreeNodeType::LEAF_NODE)
+			{
+				nodes.push_back(tmpNode->pSubNode[0]);
+				nodes.push_back(tmpNode->pSubNode[1]);
+			}
+
+			if (tmpNode->nodetype == TreeNodeType::LEAF_NODE)
+			{
+				leaf_num++;
+				if (tmpNode->arrival_samples_num > NODE_NUM_TO_GROW_DEEPER)
+				{
+					leaves.push_back(tmpNode);
+				}
+			}
+		}
+
+		assert(leaf_num == tree->leaf_node_num);
+
+		for (auto it = leaves.begin(); it != leaves.end(); it++)
+		{
+
+			const int sample_num = (*it)->arrival_samples_num;
+
+			struct LoquatCTreeNode* node = IncreasingTreeDepth(data, label, (*it)->samples_index, sample_num, forest->RFinfo, tree, (*it)->depth - 1);
+
+			// link to the tree
+			node->pParentNode = (*it)->pParentNode;
+			tree->leaf_node_num -= 1;
+			if ((*it)->pParentNode->pSubNode[0] == (*it))
+			{
+				(*it)->pParentNode->pSubNode[0] = node;
+			}
+			else
+			{
+				assert((*it)->pParentNode->pSubNode[1] == (*it));
+				(*it)->pParentNode->pSubNode[1] = node;
+			}
+
+			// delete original leaf
+			if ((*it)->samples_index != NULL)
+			{
+				delete[](*it)->samples_index;
+				(*it)->samples_index = NULL;
+				(*it)->arrival_samples_num = 0;
+			}
+
+			if ((*it)->class_distribution != NULL)
+			{
+				delete[](*it)->class_distribution;
+				(*it)->class_distribution = NULL;
+			}
+
+			if ((*it)->pSubNode != NULL)
+			{
+				delete[](*it)->pSubNode;
+				(*it)->pSubNode = NULL;
+			}
+
+			delete (*it);
+		}
+	}
+
+	return 0;
+}
+
+
 LoquatCTreeNode*** createLeafNodeMatrix(LoquatCForest* forest, float** data)
 {
 	const int samples_num = forest->RFinfo.datainfo.samples_num;
@@ -2552,6 +2725,20 @@ int _ClassificationForestOrigProximity(LoquatCForest* forest, float* data, Loqua
 	return 1;
 }
 
+int ClassificationForestOrigProximity(LoquatCForest* forest, float** data, const int index_i, float*& proximities)
+{
+	LoquatCTreeNode*** leafMatrix = createLeafNodeMatrix(forest, data);
+
+	int  rv = _ClassificationForestOrigProximity(forest, data[index_i], leafMatrix, proximities);
+
+	const int samples_num = forest->RFinfo.ntrees;
+	for (int n = 0; n < samples_num; n++)
+		delete[] leafMatrix[n];
+	delete[] leafMatrix;
+
+	return rv;
+}
+
 int ClassificationForestGAPProximity(LoquatCForest* forest, float** data, const int index_i, float*& proximities)
 {
 	if (NULL != proximities)
@@ -2636,29 +2823,15 @@ int ClassificationForestGAPProximity(LoquatCForest* forest, float** data, const 
 	return 1;
 }
 
-int ClassificationForestOrigProximity(LoquatCForest* forest, float** data, const int index_i, float*& proximities)
-{
-	LoquatCTreeNode*** leafMatrix = createLeafNodeMatrix(forest, data);
-	
-	int  rv = _ClassificationForestOrigProximity(forest, data[index_i], leafMatrix, proximities);
-	
-	const int samples_num = forest->RFinfo.ntrees;
-	for (int n = 0; n < samples_num; n++)
-		delete[] leafMatrix[n];
-	delete[] leafMatrix;
-
-	return rv;
-}
-
-int ClassificationForestProximity(LoquatCForest* forest, float** data, const int index_i, PROXIMITY_TYPE prox_type, float*& proximities)
+int ClassificationForestProximity(LoquatCForest* forest, float** data, const int index_i, ProximityType prox_type, float*& proximities)
 {
 	int rv = -1;
 	switch (prox_type)
 	{
-	case PROXIMITY_TYPE::PROX_ORIGINAL:
+	case ProximityType::PROX_ORIGINAL:
 		rv = ClassificationForestOrigProximity(forest, data, index_i, proximities);
 		break;
-	case PROXIMITY_TYPE::PROX_GEO_ACC:
+	case ProximityType::PROX_GEO_ACC:
 		rv = ClassificationForestGAPProximity(forest, data, index_i, proximities);
 		break;
 	default:
@@ -2761,7 +2934,7 @@ int PredictAnTestSampleOnOneTree(float *data, const int variables_num, struct Lo
 		if( pNode == NULL )
 			return -3;
 
-		if( pNode->nodetype == TreeNodeTpye::enLeafNode )
+		if( pNode->nodetype == TreeNodeType::LEAF_NODE )
 		{
 			predicted_class_index = pNode->leaf_node_label;
 			confidence = pNode->leaf_confidence;
@@ -2791,7 +2964,7 @@ const struct LoquatCTreeNode *GetArrivedLeafNode(const LoquatCTreeStruct* tree, 
 		if( pNode == NULL )
 			return NULL;
 
-		if( pNode->nodetype == TreeNodeTpye::enLeafNode )
+		if( pNode->nodetype == TreeNodeType::LEAF_NODE )
 			return pNode;
 
 		pNode = pNode->pSubNode[pNode->traverse(data)];
@@ -3490,33 +3663,6 @@ int HarvestOneLeafNode(struct LoquatCTreeNode **treeNode)
 	return 1;
 }
 
-int HarvestOneCLoquatTreeRecursively(struct LoquatCTreeStruct **loquatTree)
-{
-	if( (*loquatTree) == NULL )
-		return 1;
-
-	delete (*loquatTree)->rootNode;
-
-	if( (*loquatTree)->inbag_samples_index != NULL )
-	{
-		delete [] (*loquatTree)->inbag_samples_index;
-		(*loquatTree)->inbag_samples_index = NULL;
-		(*loquatTree)->inbag_samples_num = 0;
-	}
-
-	if( (*loquatTree)->outofbag_samples_index != NULL )
-	{
-		delete [] (*loquatTree)->outofbag_samples_index;
-		(*loquatTree)->outofbag_samples_index = NULL;
-		(*loquatTree)->outofbag_samples_num = 0;
-	}
-
-	delete *loquatTree;
-	*loquatTree = NULL;
-
-	return 1;
-}
-
 int ReleaseClassificationForest(LoquatCForest **loquatForest)
 {
 	if( (*loquatForest) == NULL )
@@ -3525,13 +3671,10 @@ int ReleaseClassificationForest(LoquatCForest **loquatForest)
 	const int Ntrees = (*loquatForest)->RFinfo.ntrees;
 	for ( int i=0; i<Ntrees; i++ )
 	{
-		if( (*loquatForest)->loquatTrees[i] == NULL )
-			continue;
-
-		HarvestOneCLoquatTreeRecursively(&(*loquatForest)->loquatTrees[i]);	
+		delete (*loquatForest)->loquatTrees[i];
 	}
 
-	delete [] ((*loquatForest)->loquatTrees); // 二级指针
+	delete [] ((*loquatForest)->loquatTrees);
 	delete (*loquatForest);
 	(*loquatForest) = NULL;
 
@@ -3580,7 +3723,7 @@ void DisplayLoquatTreeInfo(struct LoquatCTreeStruct* loquatTree, RandomCForests_
 			struct LoquatCTreeNode* pNode = (*it);
 			switch (pNode->nodetype)
 			{
-			case TreeNodeTpye::enLeafNode:
+			case TreeNodeType::LEAF_NODE:
 				cout << "***Leaf Node:" << endl;
 				cout << "   the variable to split:" << "no" << "  split value:" << "no" << endl;
 				cout << "   arrival number:" << pNode->arrival_samples_num << "  impurity on training data:" << pNode->train_impurity << endl;
@@ -3588,15 +3731,15 @@ void DisplayLoquatTreeInfo(struct LoquatCTreeStruct* loquatTree, RandomCForests_
 					cout << "   class" << k << ": " << pNode->class_distribution[k] << ", " << endl;
 				cout << "   assigned class label: " << pNode->leaf_node_label << endl;
 				break;
-			case TreeNodeTpye::enLinkNode:
+			case TreeNodeType::LINK_NODE:
 				cout << "***Link Node:" << endl;
 				break;
-			case TreeNodeTpye::enRootNode:
+			case TreeNodeType::ROOT_NODE:
 				cout << "***Root Node:" << endl;
 				break;
 			}
 
-			if (pNode->nodetype == TreeNodeTpye::enLinkNode || pNode->nodetype == TreeNodeTpye::enRootNode)
+			if (pNode->nodetype == TreeNodeType::LINK_NODE || pNode->nodetype == TreeNodeType::ROOT_NODE)
 			{
 				cout << "   the variable to split:" << pNode->split_variable_index << "  split value:" << pNode->split_value << endl;
 				cout << "   arrival number:" << pNode->arrival_samples_num << "  impurity on training data:" << pNode->train_impurity << endl;
@@ -3606,7 +3749,7 @@ void DisplayLoquatTreeInfo(struct LoquatCTreeStruct* loquatTree, RandomCForests_
 			}
 
 			// 叶子节点
-			if (TreeNodeTpye::enLeafNode == (*it)->nodetype)
+			if (TreeNodeType::LEAF_NODE == (*it)->nodetype)
 			{
 				continue;
 			}
@@ -3658,17 +3801,17 @@ void PrintForestInfo(const LoquatCForest* forest, ostream &out)
 				const struct LoquatCTreeNode* const pNode = (*it);
 				switch (pNode->nodetype)
 				{
-				case TreeNodeTpye::enLeafNode:
+				case TreeNodeType::LEAF_NODE:
 					leaf_node_num++;
 					
-				case TreeNodeTpye::enLinkNode:
-				case TreeNodeTpye::enRootNode:
+				case TreeNodeType::LINK_NODE:
+				case TreeNodeType::ROOT_NODE:
 					node_num++;
 					break;
 				}
 
 				// 叶子节点
-				if (TreeNodeTpye::enLeafNode == pNode->nodetype)
+				if (TreeNodeType::LEAF_NODE == pNode->nodetype)
 				{
 					continue;
 				}

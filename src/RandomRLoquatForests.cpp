@@ -59,7 +59,7 @@ void UseDefaultSettingsForRFs(RandomRForests_info &RF_info)
 	RF_info.maxdepth = DEFAULT_MAX_TREE_DEPTH_R;
 	RF_info.minsamplessplit = DEFAULT_MIN_SAMPLES;
 	RF_info.predictionModel = PredictionModel::constant;
-	RF_info.randomness = RF_TREE_RANDOMNESS::TREE_RANDOMNESS_WEAK;
+	RF_info.randomness = static_cast<int>(RandomnessLevel::WEAK);
 	RF_info.splitCrierion = SplitCriterion::mse;
 }
 
@@ -2156,9 +2156,9 @@ struct LoquatRTreeNode* GrowLoquatRTreeNodeRecursively(float** data, float* targ
 	treeNode->depth = pInputParam->parent_depth + 1;
 
 	if (treeNode->depth == 0)
-		treeNode->nodetype = TreeNodeTpye::enRootNode;
+		treeNode->nodetype = TreeNodeType::ROOT_NODE;
 	else
-		treeNode->nodetype = TreeNodeTpye::enLinkNode;//!!暂时在创建时是linknode
+		treeNode->nodetype = TreeNodeType::LINK_NODE;//!!暂时在创建时是linknode
 
 	treeNode->subnodes_num = 2;
 	treeNode->pParentNode = NULL;
@@ -2189,7 +2189,7 @@ struct LoquatRTreeNode* GrowLoquatRTreeNodeRecursively(float** data, float* targ
 	// TODO: 还需要根据covmat的值确定是否还需分裂
 	if (term)
 	{
-		treeNode->nodetype = enLeafNode;
+		treeNode->nodetype = TreeNodeType::LEAF_NODE;
 		treeNode->pSubNode[0] = NULL;
 		treeNode->pSubNode[1] = NULL;
 		loquatTree->leaf_node_num++;
@@ -2215,16 +2215,18 @@ struct LoquatRTreeNode* GrowLoquatRTreeNodeRecursively(float** data, float* targ
 		}
 		else
 		{
+			// total_variables_num_y == 1 or (arrival_num>=20 and SplitCriterion::covar)
 			// if targets are multivariate, covariance-based splitting criterion is used
-			switch (pInputParam->randomness)
+			RandomnessLevel randomness = static_cast<RandomnessLevel>(pInputParam->randomness);
+			switch (randomness)
 			{
-			case TREE_RANDOMNESS_MODERATE:
+			case RandomnessLevel::MODERATE:
 				split=SplitOnRLoquatNode;
 				break;
-			case TREE_RANDOMNESS_STRONG:
+			case RandomnessLevel::STRONG:
 				split=SplitExtremelyRandom;
 				break;
-			case TREE_RANDOMNESS_WEAK:
+			case RandomnessLevel::WEAK:
 			default:
 				split = SplitOnRLoquatNodeCompletelySearch;
 			}
@@ -2259,7 +2261,7 @@ struct LoquatRTreeNode* GrowLoquatRTreeNodeRecursively(float** data, float* targ
 		// 连ExtremelRandomSplit都没成功
 		if (0 == leftsubnode_samples_num || 0 == rightsubnode_samples_num)
 		{
-			treeNode->nodetype = enLeafNode;
+			treeNode->nodetype = TreeNodeType::LEAF_NODE;
 			loquatTree->leaf_node_num++;
 			treeNode->split_value = 0;
 			treeNode->split_variable_index = -1;
@@ -2306,12 +2308,12 @@ struct LoquatRTreeNode* GrowLoquatRTreeNodeRecursively(float** data, float* targ
 		treeNode->pSubNode[1]->pParentNode = treeNode;
 
 		delete[] subnode_samples_queue;
-		if (treeNode->pSubNode[0]->nodetype != TreeNodeTpye::enLeafNode)
+		if (treeNode->pSubNode[0]->nodetype != TreeNodeType::LEAF_NODE)
 		{
 			treeNode->pSubNode[0]->samples_index = NULL;
 			treeNode->pSubNode[0]->arrival_samples_num = 0;
 		}
-		if (treeNode->pSubNode[1]->nodetype != TreeNodeTpye::enLeafNode)
+		if (treeNode->pSubNode[1]->nodetype != TreeNodeType::LEAF_NODE)
 		{
 			treeNode->pSubNode[1]->samples_index = NULL;
 			treeNode->pSubNode[1]->arrival_samples_num = 0;
@@ -2421,7 +2423,7 @@ const struct LoquatRTreeNode *GetArrivedLeafNode(LoquatRForest *RF, int tree_ind
 		if( pNode == NULL )
 			return NULL;
 
-		if( pNode->nodetype == enLeafNode )
+		if( pNode->nodetype == TreeNodeType::LEAF_NODE )
 			return pNode;
 
 		if( data[pNode->split_variable_index] <= pNode->split_value)
@@ -2911,7 +2913,7 @@ int MSEOnOutOfBagSamples(float **data, float *target, LoquatRForest *loquatFores
 //		delete [] pPreNode;
 //		return 1;
 //	}
-//	else if( pPreNode[0]->nodetype == enLeafNode )
+//	else if( pPreNode[0]->nodetype == LEAF_NODE )
 //	{
 //		HarvestOneLeafNode(&pPreNode[0]);
 //		//delete pPreNode[0]; // 释放指针指向的空间
@@ -2940,7 +2942,7 @@ int MSEOnOutOfBagSamples(float **data, float *target, LoquatRForest *loquatFores
 //					pCurNode[j*2] = NULL;
 //					pCurNode[j*2+1] = NULL;
 //				}
-//				else if( pPreNode[j]->nodetype == enLeafNode )
+//				else if( pPreNode[j]->nodetype == LEAF_NODE )
 //				{
 //					pCurNode[j*2] = NULL;
 //					pCurNode[j*2+1] = NULL;

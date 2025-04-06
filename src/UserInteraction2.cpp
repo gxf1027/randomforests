@@ -675,7 +675,7 @@ void SaveRandomClassificationForestModelToXML2(const char *pFilePath, LoquatCFor
 				nodes_in_depth.push_back(0); // 新一个层次的nodes个数开始为0
 			}
 			// 将节点信息写入
-			if( tmpNode->nodetype == enLeafNode )
+			if( tmpNode->nodetype == TreeNodeType::LEAF_NODE )
 			{
 				// XMLElement *elem_node = new XMLElement("elem_node");
 				XMLElement *elem_node = doc->NewElement("elem_node");
@@ -701,9 +701,9 @@ void SaveRandomClassificationForestModelToXML2(const char *pFilePath, LoquatCFor
 			{
 				// XMLElement *elem_node = new XMLElement("elem_node");
 				XMLElement *elem_node = doc->NewElement("elem_node");
-				if ( tmpNode->nodetype == enLinkNode )
+				if ( tmpNode->nodetype == TreeNodeType::LINK_NODE )
 					elem_node->SetAttribute("type",1);
-				else if( tmpNode->nodetype == enRootNode )
+				else if( tmpNode->nodetype == TreeNodeType::ROOT_NODE )
 					elem_node->SetAttribute("type",0);
 				elem_node->SetAttribute("index", tmpIndex);
 				elem_node->SetAttribute("split_variable_index",tmpNode->split_variable_index);
@@ -712,7 +712,7 @@ void SaveRandomClassificationForestModelToXML2(const char *pFilePath, LoquatCFor
 				nodes_in_depth[current_depth]++;
 			}
 
-			if( tmpNode->nodetype != enLeafNode ) // 如果不是叶子节点(enLinkNode或者enRootNode)，就将子节点入队列
+			if( tmpNode->nodetype != TreeNodeType::LEAF_NODE ) // 如果不是叶子节点(LINK_NODE或者ROOT_NODE)，就将子节点入队列
 			{
 				dqNodes.push_back(tmpNode->pSubNode[0]);
 				dqNodeIndex.push_back(tmpIndex*2L);
@@ -876,7 +876,7 @@ void SaveRandomRegressionForestModelToXML2(const char *pFilePath, LoquatRForest 
 				nodes_in_depth.push_back(0); // 新一个层次的nodes个数开始为0
 			}
 			// 将节点信息写入
-			if( tmpNode->nodetype == enLeafNode )
+			if( tmpNode->nodetype == TreeNodeType::LEAF_NODE )
 			{
 				XMLElement *elem_node = doc->NewElement("elem_node");
 				elem_node->SetAttribute("type", 2);
@@ -908,9 +908,9 @@ void SaveRandomRegressionForestModelToXML2(const char *pFilePath, LoquatRForest 
 			}else
 			{
 				XMLElement *elem_node = doc->NewElement("elem_node");
-				if ( tmpNode->nodetype == enLinkNode )
+				if ( tmpNode->nodetype == TreeNodeType::LINK_NODE )
 					elem_node->SetAttribute("type",1);
-				else if( tmpNode->nodetype == enRootNode )
+				else if( tmpNode->nodetype == TreeNodeType::ROOT_NODE )
 					elem_node->SetAttribute("type",0);
 				elem_node->SetAttribute("index", tmpIndex);
 				elem_node->SetAttribute("split_variable_index", tmpNode->split_variable_index);
@@ -920,7 +920,7 @@ void SaveRandomRegressionForestModelToXML2(const char *pFilePath, LoquatRForest 
 				nodes_in_depth[current_depth]++;
 			}
 
-			if( tmpNode->nodetype != enLeafNode ) // 如果不是叶子节点(enLinkNode或者enRootNode)，就将子节点入队列
+			if( tmpNode->nodetype != TreeNodeType::LEAF_NODE ) // 如果不是叶子节点(LINK_NODE或者ROOT_NODE)，就将子节点入队列
 			{
 				dqNodes.push_back(tmpNode->pSubNode[0]);
 				dqNodeIndex.push_back(tmpIndex*2L);
@@ -1055,7 +1055,7 @@ void SaveRandomRegressionForestModelToXML2(const char *pFilePath, LoquatRForest 
 //					continue;
 //				}
 //
-//				if( pNode[k]->nodetype == enLeafNode )
+//				if( pNode[k]->nodetype == LEAF_NODE )
 //				{
 //					XMLElement *elem_node = doc->NewElement("elem_node");
 //					elem_node->SetAttribute("type", 2);
@@ -1075,9 +1075,9 @@ void SaveRandomRegressionForestModelToXML2(const char *pFilePath, LoquatRForest 
 //				}else
 //				{
 //					XMLElement *elem_node = doc->NewElement("elem_node");
-//					if ( pNode[k]->nodetype == enLinkNode )
+//					if ( pNode[k]->nodetype == LINK_NODE )
 //						elem_node->SetAttribute("type",1);
-//					else if( pNode[k]->nodetype == enRootNode )
+//					else if( pNode[k]->nodetype == ROOT_NODE )
 //						elem_node->SetAttribute("type",0);
 //					elem_node->SetAttribute("index", k);
 //					elem_node->SetAttribute("split_variable_index", pNode[k]->split_variable_index);
@@ -1233,8 +1233,8 @@ int BuildRandomClassificationForestModelFromXML2(const char* pFilePath, LoquatCF
 		root->class_distribution = NULL;
 		switch (type)
 		{
-		case enRootNode:
-			root->nodetype = enRootNode;
+		case static_cast<int>(TreeNodeType::ROOT_NODE):
+			root->nodetype = TreeNodeType::ROOT_NODE;
 			// 0527
 			root->subnodes_num = 2;
 			root->pSubNode = new struct LoquatCTreeNode* [2];
@@ -1245,8 +1245,8 @@ int BuildRandomClassificationForestModelFromXML2(const char* pFilePath, LoquatCF
 			root->class_distribution = NULL;
 			root->pParentNode = NULL;
 			break;
-		case enLinkNode:
-			root->nodetype = enLinkNode;
+		case static_cast<int>(TreeNodeType::LINK_NODE):
+			root->nodetype = TreeNodeType::LINK_NODE;
 			root->subnodes_num = 2;
 			root->pSubNode = new struct LoquatCTreeNode* [2];
 			root->pSubNode[0] = NULL;
@@ -1256,8 +1256,8 @@ int BuildRandomClassificationForestModelFromXML2(const char* pFilePath, LoquatCF
 			root->class_distribution = NULL; // need to be tested
 			root->pParentNode = NULL;
 			break;
-		case enLeafNode:
-			root->nodetype = enLeafNode;
+		case static_cast<int>(TreeNodeType::LEAF_NODE):
+			root->nodetype = TreeNodeType::LEAF_NODE;
 			root->subnodes_num = 0;
 			root->pSubNode = new struct LoquatCTreeNode* [2];
 			root->pSubNode[0] = NULL;
@@ -1318,10 +1318,10 @@ int BuildRandomClassificationForestModelFromXML2(const char* pFilePath, LoquatCF
 
 				switch (type)
 				{
-				case enRootNode: // 不可能再是root了
+				case static_cast<int>(TreeNodeType::ROOT_NODE): // 不可能再是root了
 					assert(0);
-				case enLinkNode:
-					tmpNode->nodetype = enLinkNode;
+				case static_cast<int>(TreeNodeType::LINK_NODE):
+					tmpNode->nodetype = TreeNodeType::LINK_NODE;
 					tmpNode->subnodes_num = 2;
 					tmpNode->pSubNode = new struct LoquatCTreeNode* [2];
 					tmpNode->pSubNode[0] = NULL;
@@ -1331,7 +1331,7 @@ int BuildRandomClassificationForestModelFromXML2(const char* pFilePath, LoquatCF
 					tmpNode->class_distribution = NULL; // need to be tested
 					while (1)
 					{
-						if (nodes_above_level[pp]->nodetype != enLeafNode) // 是一个连接节点
+						if (nodes_above_level[pp]->nodetype != TreeNodeType::LEAF_NODE) // 是一个连接节点
 						{
 							if (nodes_above_level[pp]->pSubNode[0] == NULL)
 							{
@@ -1352,9 +1352,9 @@ int BuildRandomClassificationForestModelFromXML2(const char* pFilePath, LoquatCF
 							pp++;
 					}
 					break;
-				case enLeafNode:
-				{ // start of case enLeafNode
-					tmpNode->nodetype = enLeafNode;
+				case static_cast<int>(TreeNodeType::LEAF_NODE):
+				{ // start of case LEAF_NODE
+					tmpNode->nodetype = TreeNodeType::LEAF_NODE;
 					tmpNode->subnodes_num = 0;
 					tmpNode->pSubNode = new struct LoquatCTreeNode* [2]; //0527
 					tmpNode->pSubNode[0] = NULL; //0527
@@ -1383,7 +1383,7 @@ int BuildRandomClassificationForestModelFromXML2(const char* pFilePath, LoquatCF
 					}
 					while (1)
 					{
-						if (nodes_above_level[pp]->nodetype != enLeafNode) // 是一个连接节点
+						if (nodes_above_level[pp]->nodetype != TreeNodeType::LEAF_NODE) // 是一个连接节点
 						{
 							if (nodes_above_level[pp]->pSubNode[0] == NULL)
 							{
@@ -1404,7 +1404,7 @@ int BuildRandomClassificationForestModelFromXML2(const char* pFilePath, LoquatCF
 							pp++;
 					}
 
-				} // end of case enLeafNode
+				} // end of case LEAF_NODE
 				break;
 				default:
 					assert(0);
@@ -1584,8 +1584,8 @@ int BuildRandomRegressionForestModelFromXML2(const char* pFilePath, LoquatRFores
 		root->pLeafNodeInfo = NULL;
 		switch (type)
 		{
-		case enRootNode:
-			root->nodetype = enRootNode;
+		case static_cast<int>(TreeNodeType::ROOT_NODE):
+			root->nodetype = TreeNodeType::ROOT_NODE;
 			// 0527
 			root->subnodes_num = 2;
 			root->pSubNode = new struct LoquatRTreeNode* [2];
@@ -1594,8 +1594,8 @@ int BuildRandomRegressionForestModelFromXML2(const char* pFilePath, LoquatRFores
 			root->pLeafNodeInfo = NULL;
 			root->pParentNode = NULL;
 			break;
-		case enLinkNode:
-			root->nodetype = enLinkNode;
+		case static_cast<int>(TreeNodeType::LINK_NODE):
+			root->nodetype = TreeNodeType::LINK_NODE;
 			root->subnodes_num = 2;
 			root->pSubNode = new struct LoquatRTreeNode* [2];
 			root->pSubNode[0] = NULL;
@@ -1603,9 +1603,9 @@ int BuildRandomRegressionForestModelFromXML2(const char* pFilePath, LoquatRFores
 			root->pLeafNodeInfo = NULL;
 			root->pParentNode = NULL;
 			break;
-		case enLeafNode:
+		case static_cast<int>(TreeNodeType::LEAF_NODE):
 		{
-			root->nodetype = enLeafNode;
+			root->nodetype = TreeNodeType::LEAF_NODE;
 			root->subnodes_num = 0;
 			root->pSubNode = new struct LoquatRTreeNode* [2];
 			root->pSubNode[0] = NULL;
@@ -1684,10 +1684,10 @@ int BuildRandomRegressionForestModelFromXML2(const char* pFilePath, LoquatRFores
 
 				switch (type)
 				{
-				case enRootNode: // 不可能再是root了
+				case static_cast<int>(TreeNodeType::ROOT_NODE): // 不可能再是root了
 					assert(0);
-				case enLinkNode:
-					tmpNode->nodetype = enLinkNode;
+				case static_cast<int>(TreeNodeType::LINK_NODE):
+					tmpNode->nodetype = TreeNodeType::LINK_NODE;
 					tmpNode->subnodes_num = 2;
 					tmpNode->pSubNode = new struct LoquatRTreeNode* [2];
 					tmpNode->pSubNode[0] = NULL;
@@ -1695,7 +1695,7 @@ int BuildRandomRegressionForestModelFromXML2(const char* pFilePath, LoquatRFores
 
 					while (1)
 					{
-						if (nodes_above_level[pp]->nodetype != enLeafNode) // 是一个连接节点
+						if (nodes_above_level[pp]->nodetype != TreeNodeType::LEAF_NODE) // 是一个连接节点
 						{
 							if (nodes_above_level[pp]->pSubNode[0] == NULL)
 							{
@@ -1716,9 +1716,9 @@ int BuildRandomRegressionForestModelFromXML2(const char* pFilePath, LoquatRFores
 							pp++;
 					}
 					break;
-				case enLeafNode:
-				{ // start of case enLeafNode
-					tmpNode->nodetype = enLeafNode;
+				case static_cast<int>(TreeNodeType::LEAF_NODE):
+				{ // start of case LEAF_NODE
+					tmpNode->nodetype = TreeNodeType::LEAF_NODE;
 					tmpNode->subnodes_num = 0;
 					tmpNode->pSubNode = new struct LoquatRTreeNode* [2];
 					tmpNode->pSubNode[0] = NULL;
@@ -1753,7 +1753,7 @@ int BuildRandomRegressionForestModelFromXML2(const char* pFilePath, LoquatRFores
 					}
 					while (1)
 					{
-						if (nodes_above_level[pp]->nodetype != enLeafNode) // 是一个连接节点
+						if (nodes_above_level[pp]->nodetype != TreeNodeType::LEAF_NODE) // 是一个连接节点
 						{
 							if (nodes_above_level[pp]->pSubNode[0] == NULL)
 							{
@@ -1774,7 +1774,7 @@ int BuildRandomRegressionForestModelFromXML2(const char* pFilePath, LoquatRFores
 							pp++;
 					}
 
-				} // end of case enLeafNode
+				} // end of case LEAF_NODE
 				break;
 				default:
 					assert(0);
@@ -1850,7 +1850,7 @@ void SaveClassificationForestToPlainText(LoquatCForest* forest, const char* outp
 			// int num_next_level=0;
 			// for(int k=0; k<nodes_this_level.size(); k++)
 			// {
-			// 	num_next_level += nodes_this_level[k]->nodetype==enLeafNode ? 0 : 2; // 下一层有几个节点
+			// 	num_next_level += nodes_this_level[k]->nodetype==LEAF_NODE ? 0 : 2; // 下一层有几个节点
 			// }
 
 			int next = 0;
@@ -1861,11 +1861,11 @@ void SaveClassificationForestToPlainText(LoquatCForest* forest, const char* outp
 				pNode = nodes_this_level[k];
 				_treenode_classifer node;
 				node.index = index;
-				node.label = pNode->nodetype == enLeafNode ? pNode->leaf_node_label : -1;
-				node.feat_split = pNode->nodetype == enLeafNode ? -1 : pNode->split_variable_index;
-				node.splitv = pNode->nodetype == enLeafNode ? -1 : pNode->split_value;
+				node.label = pNode->nodetype == TreeNodeType::LEAF_NODE ? pNode->leaf_node_label : -1;
+				node.feat_split = pNode->nodetype == TreeNodeType::LEAF_NODE ? -1 : pNode->split_variable_index;
+				node.splitv = pNode->nodetype == TreeNodeType::LEAF_NODE ? -1 : pNode->split_value;
 				index++;
-				if (pNode->nodetype != enLeafNode)
+				if (pNode->nodetype != TreeNodeType::LEAF_NODE)
 				{
 					nodes_next_level.push_back(pNode->pSubNode[0]);
 					nodes_next_level.push_back(pNode->pSubNode[1]);
@@ -1954,7 +1954,7 @@ void SaveRegressionForestToPlainText(LoquatRForest* forest, const char* output_f
 			// int num_next_level=0;
 			// for(int k=0; k<nodes_this_level.size(); k++)
 			// {
-			// 	num_next_level += nodes_this_level[k]->nodetype==enLeafNode ? 0 : 2; // 下一层有几个节点
+			// 	num_next_level += nodes_this_level[k]->nodetype==LEAF_NODE ? 0 : 2; // 下一层有几个节点
 			// }
 
 			int next = 0;
@@ -1965,11 +1965,11 @@ void SaveRegressionForestToPlainText(LoquatRForest* forest, const char* output_f
 				pNode = nodes_this_level[k];
 				_treenode_classifer node;
 				node.index = index;
-				//node.label = pNode->nodetype == enLeafNode ? pNode->leaf_node_label : -1;
-				node.feat_split = pNode->nodetype == enLeafNode ? -1 : pNode->split_variable_index;
-				node.splitv = pNode->nodetype == enLeafNode ? -1 : pNode->split_value;
+				//node.label = pNode->nodetype == LEAF_NODE ? pNode->leaf_node_label : -1;
+				node.feat_split = pNode->nodetype == TreeNodeType::LEAF_NODE ? -1 : pNode->split_variable_index;
+				node.splitv = pNode->nodetype == TreeNodeType::LEAF_NODE ? -1 : pNode->split_value;
 				index++;
-				if (pNode->nodetype != enLeafNode)
+				if (pNode->nodetype != TreeNodeType::LEAF_NODE)
 				{
 					nodes_next_level.push_back(pNode->pSubNode[0]);
 					nodes_next_level.push_back(pNode->pSubNode[1]);
@@ -1984,7 +1984,7 @@ void SaveRegressionForestToPlainText(LoquatRForest* forest, const char* output_f
 
 				model_output << node.index << " " << node.subnode[0] << " " << node.subnode[1] << " " << node.feat_split << " " << node.splitv;
 
-				if (enLeafNode == pNode->nodetype)
+				if (TreeNodeType::LEAF_NODE == pNode->nodetype)
 				{
 					for (int p = 0; p < forest->RFinfo.datainfo.variables_num_y; p++)
 						model_output << " " << pNode->pLeafNodeInfo->MeanOfArrived[p];
@@ -2069,13 +2069,13 @@ LoquatCForest* BuildClassificationModelFromPlainText(const char* input_filename)
 		inputline >> _treenode.index >> _treenode.subnode[0] >> _treenode.subnode[1] >> _treenode.feat_split >> _treenode.splitv >> _treenode.label;
 
 		struct LoquatCTreeNode* treenode = new struct LoquatCTreeNode;
-		treenode->nodetype = _treenode.index == 0 ? enRootNode : (_treenode.subnode[0] == 0 && _treenode.subnode[1] == 0 ? enLeafNode : enLinkNode);
-		if (enRootNode == treenode->nodetype)
+		treenode->nodetype = _treenode.index == 0 ? TreeNodeType::ROOT_NODE : (_treenode.subnode[0] == 0 && _treenode.subnode[1] == 0 ? TreeNodeType::LEAF_NODE : TreeNodeType::LINK_NODE);
+		if (TreeNodeType::ROOT_NODE == treenode->nodetype)
 		{
 			vtrees[tree_index]->rootNode = treenode;
 			treenode->pParentNode = NULL;
 		}
-		if (enLeafNode == treenode->nodetype)
+		if (TreeNodeType::LEAF_NODE == treenode->nodetype)
 		{
 			vtrees[tree_index]->leaf_node_num++;
 		}
@@ -2096,7 +2096,7 @@ LoquatCForest* BuildClassificationModelFromPlainText(const char* input_filename)
 		treenode->leaf_confidence = 1;
 		treenode->leaf_node_label = _treenode.label;
 
-		if (treenode->nodetype != enLeafNode)
+		if (treenode->nodetype != TreeNodeType::LEAF_NODE)
 		{
 			pair<struct LoquatCTreeNode*, _treenode_classifer> p(treenode, _treenode);
 			nodes_queue.push_back(p);
@@ -2138,7 +2138,7 @@ LoquatCForest* BuildClassificationModelFromPlainText(const char* input_filename)
 			for (int n = 0; n < nodes_this_level.size(); n++)
 			{
 				nodes_this_level[n]->depth = depth;
-				if (enLeafNode == nodes_this_level[n]->nodetype)
+				if (TreeNodeType::LEAF_NODE == nodes_this_level[n]->nodetype)
 					continue;
 				nodes_next_level.push_back(nodes_this_level[n]->pSubNode[0]);
 				nodes_next_level.push_back(nodes_this_level[n]->pSubNode[1]);
@@ -2261,13 +2261,13 @@ LoquatRForest* BuildRegressionModelFromPlainText(const char* input_filename)
 		}
 
 		struct LoquatRTreeNode* treenode = new struct LoquatRTreeNode;
-		treenode->nodetype = _treenode.index == 0 ? enRootNode : (_treenode.subnode[0] == 0 && _treenode.subnode[1] == 0 ? enLeafNode : enLinkNode);
-		if (enRootNode == treenode->nodetype)
+		treenode->nodetype = _treenode.index == 0 ? TreeNodeType::ROOT_NODE : (_treenode.subnode[0] == 0 && _treenode.subnode[1] == 0 ? TreeNodeType::LEAF_NODE : TreeNodeType::LINK_NODE);
+		if (TreeNodeType::ROOT_NODE == treenode->nodetype)
 		{
 			vtrees[tree_index]->rootNode = treenode;
 			treenode->pParentNode = NULL;
 		}
-		if (enLeafNode == treenode->nodetype)
+		if (TreeNodeType::LEAF_NODE == treenode->nodetype)
 		{
 			vtrees[tree_index]->leaf_node_num++;
 		}
@@ -2287,7 +2287,7 @@ LoquatRForest* BuildRegressionModelFromPlainText(const char* input_filename)
 		/*treenode->class_distribution = NULL;
 		treenode->leaf_confidence = 1;
 		treenode->leaf_node_label = _treenode.label;*/
-		if (enLeafNode == treenode->nodetype)
+		if (TreeNodeType::LEAF_NODE == treenode->nodetype)
 		{
 			treenode->pLeafNodeInfo = new LeafNodeInfo;
 			treenode->pLeafNodeInfo->arrivedRatio = 0;
@@ -2303,7 +2303,7 @@ LoquatRForest* BuildRegressionModelFromPlainText(const char* input_filename)
 		}
 		
 
-		if (treenode->nodetype != enLeafNode)
+		if (treenode->nodetype != TreeNodeType::LEAF_NODE)
 		{
 			pair<struct LoquatRTreeNode*, _treenode_regressor> p(treenode, _treenode);
 			nodes_queue.push_back(p);
@@ -2345,7 +2345,7 @@ LoquatRForest* BuildRegressionModelFromPlainText(const char* input_filename)
 			for (int n = 0; n < nodes_this_level.size(); n++)
 			{
 				nodes_this_level[n]->depth = depth;
-				if (enLeafNode == nodes_this_level[n]->nodetype)
+				if (TreeNodeType::LEAF_NODE == nodes_this_level[n]->nodetype)
 					continue;
 				nodes_next_level.push_back(nodes_this_level[n]->pSubNode[0]);
 				nodes_next_level.push_back(nodes_this_level[n]->pSubNode[1]);
