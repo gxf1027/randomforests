@@ -6,6 +6,7 @@ Train random forests from codes
 
 #include "../src/RandomCLoquatForests.h"
 #include "../src/UserInteraction2.h"
+#include <cmath>
 using namespace std;
 
 

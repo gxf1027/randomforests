@@ -24,13 +24,6 @@ using namespace std;
 LoquatRTreeNode::~LoquatRTreeNode()
 {
 	delete [] samples_index;
-
-	if (pSubNode != NULL)
-	{
-		delete pSubNode[0];
-		delete pSubNode[1];
-	}
-
 	delete [] pSubNode;
 
 	if (pLeafNodeInfo != NULL)
@@ -48,6 +41,27 @@ LoquatRTreeNode::~LoquatRTreeNode()
 		delete[] pLeafNodeInfo->linearPredictor;
 		delete pLeafNodeInfo;
 	}
+}
+
+void deleteTreeNodes(LoquatRTreeNode* node)
+{
+	if (node == NULL)
+		return;
+
+	if (node->pSubNode == NULL)
+		return;
+
+	deleteTreeNodes(node->pSubNode[0]);
+	deleteTreeNodes(node->pSubNode[1]);
+	delete node;
+}
+
+LoquatRTreeStruct::~LoquatRTreeStruct()
+{
+	delete[] inbag_samples_index;
+	delete[] outofbag_samples_index;
+
+	deleteTreeNodes(rootNode);
 }
 
 void UseDefaultSettingsForRFs(RandomRForests_info &RF_info)
@@ -651,11 +665,6 @@ typedef struct var_id {
 	float var;
 	int index;
 }var_id;
-
-int _cmp_r(const void* a, const void* b)
-{
-	return ((var_target*)a)->var > ((var_target*)b)->var ? 1 : -1;
-}
 
 
 int _SplitOnRLoquatNodeCompletelySearchBySort1D(float** data, float* target, const int variables_num_x, const int variables_num_y,
@@ -2559,33 +2568,6 @@ int TrainRandomForestRegressor(float **data, float *target, RandomRForests_info 
 	return rv;
 }
 
-int HarvestOneRLoquatTreeRecursively(struct LoquatRTreeStruct **loquatTree)
-{
-	if( (*loquatTree) == NULL )
-		return 1;
-
-	delete (*loquatTree)->rootNode;
-
-	if( (*loquatTree)->inbag_samples_index != NULL )
-	{
-		delete [] (*loquatTree)->inbag_samples_index;
-		(*loquatTree)->inbag_samples_index = NULL;
-		(*loquatTree)->inbag_samples_num = 0;
-	}
-
-	if( (*loquatTree)->outofbag_samples_index != NULL )
-	{
-		delete [] (*loquatTree)->outofbag_samples_index;
-		(*loquatTree)->outofbag_samples_index = NULL;
-		(*loquatTree)->outofbag_samples_num = 0;
-	}
-
-	delete *loquatTree;
-	*loquatTree = NULL;
-
-	return 1;
-}
-
 int EvaluateOneSample(float *data, LoquatRForest *loquatForest, float *&target_predicted, int nMethod/*=0*/)
 {
 	int ntrees = loquatForest->RFinfo.ntrees;
@@ -3040,7 +3022,7 @@ int ReleaseRegressionForest(LoquatRForest **loquatForest)
 		if( (*loquatForest)->loquatTrees[i] == NULL )
 			continue;
 
-		HarvestOneRLoquatTreeRecursively(&((*loquatForest)->loquatTrees[i]));
+		delete (*loquatForest)->loquatTrees[i];
 	}
 
 	delete [] (*loquatForest)->loquatTrees; // ถþผถึธี๋

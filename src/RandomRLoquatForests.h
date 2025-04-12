@@ -80,6 +80,7 @@ struct LoquatRTreeStruct
 	int depth;						// the largest depth index, from 0 
 	int leaf_node_num;
 	struct LoquatRTreeNode *rootNode;
+	virtual ~LoquatRTreeStruct();
 };
 
 typedef struct LoquatRForestSturct

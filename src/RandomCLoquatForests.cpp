@@ -10,7 +10,7 @@ Contact: gxf1027@126.com
 #include <vector>
 #include <deque>
 #include <cassert>
-#include <cstring> // for memset...
+#include <cstring>
 #include <float.h>
 #include <algorithm>
 #include <iomanip>
@@ -98,20 +98,28 @@ LoquatCTreeNode::~LoquatCTreeNode()
 {
 	delete[] samples_index;
 	delete[] class_distribution;
-		
-	if (pSubNode != NULL)
-	{
-		delete pSubNode[0];
-		delete pSubNode[1];
-	}
-	delete pSubNode;
+	delete[] pSubNode;
+}
+
+void deleteTreeNodes(LoquatCTreeNode* node)
+{
+	if (node == NULL)
+		return;
+	
+	if (node->pSubNode == NULL)
+		return;
+
+	deleteTreeNodes(node->pSubNode[0]);
+	deleteTreeNodes(node->pSubNode[1]);
+	delete node;
 }
 
 LoquatCTreeStruct::~LoquatCTreeStruct()
 {
 	delete[] inbag_samples_index;
 	delete[] outofbag_samples_index;
-	delete rootNode;
+	
+	deleteTreeNodes(rootNode);
 }
 
 
@@ -1203,6 +1211,7 @@ int SplitOnDLoquatNodeCompletelySearch2(float** data, int* label, int variables_
 #endif
     // randomly select the variables(attribute) candidate choosing to split on the node
     vector<int> arrayindx;
+	arrayindx.reserve(Mvariable);
     for (i = 0; i < variables_num; i++)
         arrayindx.push_back(i);
 
@@ -1247,6 +1256,9 @@ int SplitOnDLoquatNodeCompletelySearch2(float** data, int* label, int variables_
         } customComp;
 
         std::sort(vls, vls+ innode_num, customComp);
+		/*std::sort(vls, vls + innode_num, [](const var_label& a, const var_label& b) {
+								return a.var < b.var; }
+		);*/
 
         // 计算累计直方图(需排序后)
         for (k = 0; k < innode_num; k++)
