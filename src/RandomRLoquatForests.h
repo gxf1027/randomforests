@@ -116,7 +116,7 @@ return:
 NOTE: The user MUSTN'T allocate memory for loquatForest before this function is called, and SHOULD assign NULL to 'loquatForest' structure.
       Memory management is handled by the function automatically.
 */
-int TrainRandomForestRegressor(float **data, float *target, RandomRForests_info RFinfo, LoquatRForest *&loquatForest, bool bTargetNormalize=true, int random_state=0, int trace=0);
+int TrainRandomForestRegressor(float **data, float *target, RandomRForests_info RFinfo, LoquatRForest *&loquatForest, bool bTargetNormalize=true, int random_state=0, int trace=0, int jobs=1);
 
 /*-----------------------------------------------CLEAR MEMORY-----------------------------------------------*/
 

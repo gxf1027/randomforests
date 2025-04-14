@@ -3,8 +3,6 @@
 
 #define RF_MAX(a,b)  ((a)>(b) ? (a) : (b))
 
-extern unsigned int g_random_seed;
-
 enum class TreeNodeType: int { ROOT_NODE=0, LINK_NODE=1, LEAF_NODE=2 };
 
 //enum RFError {

@@ -10,6 +10,7 @@
 #include <float.h>
 #include <algorithm>
 #include <unordered_map>
+#include "omp.h"
 using namespace std;
 
 #include "RandomRLoquatForests.h"
@@ -2447,7 +2448,7 @@ const struct LoquatRTreeNode *GetArrivedLeafNode(LoquatRForest *RF, int tree_ind
 	return NULL;
 }
 
-int TrainRandomForestRegressor(float **data, float *target, RandomRForests_info RFinfo, LoquatRForest *&loquatForest, bool bTargetNormalize /* = true*/, int random_state, int trace)
+int TrainRandomForestRegressor(float **data, float *target, RandomRForests_info RFinfo, LoquatRForest *&loquatForest, bool bTargetNormalize /* = true*/, int random_state, int trace, int jobs)
 {
 	if (random_state < 0)
 	{
@@ -2534,14 +2535,20 @@ int TrainRandomForestRegressor(float **data, float *target, RandomRForests_info 
 	
 	}
 
-	rv = 1;
+	int max_threads = omp_get_max_threads();
+	jobs = RF_MAX(1, jobs);
+	jobs = jobs > max_threads ? max_threads : jobs;
+	omp_set_num_threads(jobs);
+	int growed_num = 0;
+
+#pragma omp parallel for 
 	for (int i=0; i< ntrees; i++ )
 	{
 
 		float* tgt = (NULL == target_inner) ? target : target_inner;
-		rv = GrowRandomizedRLoquatTreeRecursively(data, tgt, RFinfo, loquatForest->loquatTrees[i]);
+		int rv = GrowRandomizedRLoquatTreeRecursively(data, tgt, RFinfo, loquatForest->loquatTrees[i]);
 
-		if (trace > 0 && (i + 1) % trace == 0)
+		if (jobs ==1 && trace > 0 && (i + 1) % trace == 0)
 		{
 			float ooberror = 0;
 			loquatForest->RFinfo.ntrees = i + 1;
@@ -2555,10 +2562,16 @@ int TrainRandomForestRegressor(float **data, float *target, RandomRForests_info 
 			delete[] mse;
 		}
 
-		if (1 != rv)
+		if (jobs > 1)
 		{
-			rv = -1;
-			break;
+#pragma omp critical  
+			{
+				growed_num++;
+				if (trace > 0 && growed_num % trace == 0)
+				{
+					cout << "Tree: " << growed_num << " has been trained." << endl;
+				}
+			}
 		}
 			
 	}

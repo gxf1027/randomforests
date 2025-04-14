@@ -129,10 +129,7 @@ return:
 NOTE: The user MUSTN'T allocate memory for loquatForest before this function is called, and SHOULD assign NULL to 'loquatForest' structure.
 	  Memory management is handled by the function automatically.
 */
-int TrainRandomForestClassifier(float** data, int* label, RandomCForests_info RFinfo, LoquatCForest*& loquatForest, int random_state=0, int trace = 0);
-#ifdef OPENMP_SPEEDUP
-int TrainRandomForestClassifierOMP(float** data, int* label, RandomCForests_info RFinfo, LoquatCForest*& loquatForest, int random_state = 0, int jobs=4, int trace=0);
-#endif
+int TrainRandomForestClassifier(float** data, int* label, RandomCForests_info RFinfo, LoquatCForest*& loquatForest, int random_state = 0, int trace = 0, int jobs=1);
 
 /*
 Description:	Train a Random Forests model using adaptive stopping criterion,
