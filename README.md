@@ -15,10 +15,11 @@ C++ implementation of random forests
 2. 支持3种随机性 (Original RF / Near Original / [Extra-Trees](https://orbi.uliege.be/bitstream/2268/9357/1/geurts-mlj-advance.pdf))
 3. 可计算[Proximities](https://blog.csdn.net/gxf1027/article/details/130701720)，支持离群值计算（raw outlier measure score）
 4. 可计算[特征重要性](https://blog.csdn.net/gxf1027/article/details/131040910)
-5. 支持[OpenMP加速](https://blog.csdn.net/gxf1027/article/details/131440494)
-6. off-the-shelf，即插即用
-7. 提供两种使用方式：命令行与嵌入代码(C风格的C++)
-8. 可保存训练完成的模型至本地，也可从本地读取模型。支持两种格式: Plain Text，文件体积小，适用于所有规模的模型；XML格式，可读性强，但不适用于大模型。
+5. 支持[imputation](https://blog.csdn.net/gxf1027/article/details/137516416?spm=1001.2014.3001.5502)
+6. 支持[OpenMP加速](https://blog.csdn.net/gxf1027/article/details/131440494)
+7. off-the-shelf，即插即用
+8. 提供两种使用方式：命令行与嵌入代码(C风格的C++)
+9. 可保存训练完成的模型至本地，也可从本地读取模型。支持两种格式: Plain Text，文件体积小，适用于所有规模的模型；XML格式，可读性强，但不适用于大模型。
 
 ## <font size=4>运行 demo</font>
 ```shell
