@@ -533,10 +533,7 @@ int TrainRandomForestClassifier(float** data, int* label, RandomCForests_info RF
 		return -3;
 	}
 
-	int max_threads = omp_get_max_threads();
-	jobs = RF_MAX(1, jobs);
-	jobs = jobs > max_threads ? max_threads : jobs;
-	omp_set_num_threads(jobs);
+	omp_set_threads(jobs);
 
 	const int Ntrees = RFinfo.ntrees;
 	loquatForest = new LoquatCForest;
@@ -1986,7 +1983,7 @@ int RawVariableImportanceScore2OMP(float** data, int* label, LoquatCForest* loqu
 	int* oobOfTrees = new int[Ntrees];
 	memset(oobOfTrees, 0, sizeof(int) * Ntrees);
 
-	omp_set_num_threads(jobs);
+	omp_set_threads(jobs);
 
 	bool oobFound = false;
 
@@ -2157,7 +2154,7 @@ int RawVariableImportanceScore2OMP(float** data, int* label, LoquatCForest* loqu
 struct LoquatCTreeNode* IncreasingTreeDepth(float** data, int* labels, int* index, const int sample_num, RandomCForests_info& rfinfo, struct LoquatCTreeStruct*& loquatTree, int parent_depth)
 {
 
-	if (sample_num <= 50 /*rfinfo.minsamplessplit*/)
+	if (sample_num <= NODE_NUM_TO_GROW_DEEPER /*rfinfo.minsamplessplit*/)
 	{
 		loquatTree->leaf_node_num++;
 		struct LoquatCTreeNode* leaf = new LoquatCTreeNode(TreeNodeType::LEAF_NODE, parent_depth + 1, sample_num, index, rfinfo.datainfo.classes_num, labels);
@@ -2229,10 +2226,11 @@ struct LoquatCTreeNode* IncreasingTreeDepth(float** data, int* labels, int* inde
 	return node;
 }
 
-int GrowGreaterDepth(LoquatCForest*& forest, float** data, int* label)
+int GrowGreaterDepth(LoquatCForest*& forest, float** data, int* label, int jobs=1)
 {
 	const int ntrees = forest->RFinfo.ntrees;
-	omp_set_num_threads(8);
+	omp_set_threads(jobs);
+
 #pragma omp parallel for
 	for (int t = 0; t < ntrees; t++)
 	{

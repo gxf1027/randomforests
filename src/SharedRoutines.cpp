@@ -1,6 +1,7 @@
 #include <iostream>
 #include <ctime>
 #include <cstring>
+#include <omp.h>
 using namespace std;
 
 #include "SharedRoutines.h"
@@ -228,4 +229,12 @@ float** clone_data(float** data, int num, int vars)
 	}
 
 	return data_clone;
+}
+
+void omp_set_threads(int jobs)
+{
+	const int max_threads = omp_get_max_threads();
+	jobs = RF_MAX(1, jobs);
+	jobs = jobs > max_threads ? max_threads : jobs;
+	omp_set_num_threads(jobs);
 }

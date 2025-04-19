@@ -18,7 +18,7 @@ Description:	Missing values imputation for classification dataset by Random Fore
 [out]			
 return:			Imputated samples with the same dimension of 'data'
 */
-float** MissingValuesImputaion(float** data, bool* is_categorical, const float** data_orig, int* label, RandomCForests_info RFinfo, ProximityType prox_type=ProximityType::PROX_GEO_ACC, int max_iteration=2, bool verbose=true, int random_state=0, int jobs=1);
+float** MissingValuesImputaion(float** data, bool* is_categorical, const float** data_orig, int* label, RandomCForests_info RFinfo, ProximityType prox_type=ProximityType::PROX_GEO_ACC, bool toGreaterDepth=false, int max_iteration=2, bool verbose=true, int random_state=0, int jobs=1);
 
 
 /*

@@ -47,6 +47,11 @@ void permute(const int n, int* order_permuted);
 
 float** clone_data(float** data, int num, int vars);
 
+/*
+Description: set threads properly
+*/
+void omp_set_threads(int jobs);
+
 #ifdef _DEBUG
 #define KCF_ASSERT(condition) if(!(condition)) \
 {			\

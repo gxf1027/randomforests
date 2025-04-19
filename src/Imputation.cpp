@@ -22,7 +22,7 @@ LoquatCTreeNode*** createLeafNodeMatrix(LoquatCForest* forest, float** data);
 LoquatRTreeNode*** createLeafNodeMatrix(LoquatRForest* forest, float** data);
 int _ClassificationForestOrigProximity(LoquatCForest* forest, float* data, LoquatCTreeNode*** leafNodeMatrix, float*& proximities);
 int RegressionForestOrigProximity2(LoquatRForest* forest, float* data, LoquatRTreeNode*** leafNodeMatrix, float*& proximities);
-int GrowGreaterDepth(LoquatCForest*& forest, float** data, int* label);
+int GrowGreaterDepth(LoquatCForest*& forest, float** data, int* label, int jobs=1);
 
 int standardization(float** data, int samples_num, int variables_num, bool* is_categorical, unsigned char** nanmask, float** data_sd, float* mean, float* std)
 {
@@ -360,7 +360,7 @@ void PrintPrecision(int samples_num, int var_num, float **data_imp, const float 
 	delete[]dmean_imp;
 }
 
-float** MissingValuesImputaion(float** data, bool* is_categorical, const float** data_orig, int* label, RandomCForests_info RFinfo, ProximityType prox_type, int max_iteration, bool verbose, int random_state, int jobs)
+float** MissingValuesImputaion(float** data, bool* is_categorical, const float** data_orig, int* label, RandomCForests_info RFinfo, ProximityType prox_type, bool toGreaterDepth, int max_iteration, bool verbose, int random_state, int jobs)
 {
 	int rv = chekcDataSetLabel(label, RFinfo.datainfo.samples_num, RFinfo.datainfo.classes_num);
 	if (rv < 0)
@@ -442,11 +442,7 @@ float** MissingValuesImputaion(float** data, bool* is_categorical, const float**
 		PrintPrecision(samples_num, var_num, data_imp, data_orig, nanmask, is_categorical, count_var, var_true, method_nrmse);
 	}
 
-	if (jobs <= 0)
-		jobs = 1;
-
-	jobs = jobs > omp_get_max_threads() ? omp_get_max_threads() : jobs;
-	omp_set_num_threads(jobs);
+	omp_set_threads(jobs);
 	
 	// (2) random forest proximities is used to impuate
 	for (int it = 0; it < max_iteration; it++)
@@ -459,7 +455,8 @@ float** MissingValuesImputaion(float** data, bool* is_categorical, const float**
 		std::cout << ">>random forest is trained. " << std::endl;
 		////////////////
 		//std::cout << "start post-training" << std::endl;
-		//GrowGreaterDepth(forest, data_tmp, label);
+		if (toGreaterDepth)
+			GrowGreaterDepth(forest, data_tmp, label, jobs);
 		//PostTrain(forest, data_tmp, label);
 		//std::cout << "end of post-training" << std::endl;
 		////////////////
