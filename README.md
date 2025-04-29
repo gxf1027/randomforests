@@ -90,7 +90,7 @@ int main()
 	rfinfo.randomness = 1;
 	// train forest
 	LoquatCForest* loquatCForest = NULL;
-	TrainRandomForestClassifier(data, label, rfinfo, loquatCForest /*OUT*/, 50);
+	TrainRandomForestClassifier(data, label, rfinfo, loquatCForest /*OUT*/, -1 /*random state*/, 50);
 	float error_rate = 1.f;
 	OOBErrorEstimate(data, label, loquatCForest, error_rate /*OUT*/);
 	// save RF model, 0:xml, 1:plain text
@@ -130,7 +130,7 @@ int main()
 	rfinfo.predictionModel=PredictionModel::constant;
 	// train forest
 	LoquatRForest* loquatRForest = NULL;
-	TrainRandomForestRegressor(data, target, rfinfo, loquatRForest /*OUT*/, false, 20);
+	TrainRandomForestRegressor(data, target, rfinfo, loquatRForest /*OUT*/, false, -1 /*random state*/, 20);
 	float* mean_squared_error = NULL;
 	MSEOnOutOfBagSamples(data, target, loquatRForest, mean_squared_error /*OUT*/);
 	delete[] mean_squared_error;
