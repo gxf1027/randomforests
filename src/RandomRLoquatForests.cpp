@@ -179,12 +179,14 @@ inline ForestMat* createMat(int rows, int cols, double* data)
 	return m;
 }
 
-inline void deleteMat(ForestMat* mat)
+inline void deleteMat(ForestMat*& mat)
 {
 	mat->rows = 0;
 	mat->cols = 0;
 	if (mat->data)
 		delete[] mat->data;
+	delete mat;
+	mat = NULL;
 }
 
 /*LU*/
@@ -2754,7 +2756,7 @@ int MSEOnOutOfBagSamples(float **data, float *target, LoquatRForest *loquatFores
 	memset(output, 0, sizeof(double) * variables_num_y);
 
 	bool bNormalized = loquatForest->bTargetNormalize;
-
+	//ofstream linear_test("linear-test.txt");
 	int cc = 0, cc_tt = 0;
 	for (effect = 0, t = 0; t < nTrees; t++)
 	{
@@ -2787,6 +2789,8 @@ int MSEOnOutOfBagSamples(float **data, float *target, LoquatRForest *loquatFores
 					predictByLinearModel(pLeafNode->pLeafNodeInfo->linearPredictor, data[index], variables_num_x, variables_num_y, output);
 					for (j = 0; j < variables_num_y; j++)
 						target_predicted[index][j] += output[j];
+					
+					//linear_test <<t<<"," << index << ","  << target[index] << ","  << output[0] <<","<< pLeafNode->pLeafNodeInfo->MeanOfArrived[0]<<"," << abs(output[0] - target[index]) << "," << abs(pLeafNode->pLeafNodeInfo->MeanOfArrived[0] -target[index])<< endl;
 				}
 				else
 				{
@@ -2816,6 +2820,7 @@ int MSEOnOutOfBagSamples(float **data, float *target, LoquatRForest *loquatFores
 			}
 		}
 	}
+	//linear_test.close();
 
 	//cout << cc << " " << cc_tt << endl;
 	if (0 == effect) //  没有一颗树保存了oob信息
@@ -2874,152 +2879,6 @@ int MSEOnOutOfBagSamples(float **data, float *target, LoquatRForest *loquatFores
 
 	return rv;
 }
-
-//int HarvestOneRLoquatTree(struct LoquatRTreeStruct **loquatTree)
-//{
-//	if( (*loquatTree) == NULL )
-//		return 1;
-//
-//	if( (*loquatTree)->inbag_samples_index != NULL )
-//	{
-//		delete [] (*loquatTree)->inbag_samples_index;
-//		(*loquatTree)->inbag_samples_index = NULL;
-//		(*loquatTree)->inbag_samples_num = 0;
-//	}
-//
-//	if( (*loquatTree)->outofbag_samples_index != NULL )
-//	{
-//		delete [] (*loquatTree)->outofbag_samples_index;
-//		(*loquatTree)->outofbag_samples_index = NULL;
-//		(*loquatTree)->outofbag_samples_num = 0;
-//	}
-//
-//	int depth = (*loquatTree)->depth;
-//	int i;
-//	unsigned int j, maxNodeNumThisDepth=0;
-//	struct LoquatRTreeNode **pPreNode = NULL, **pCurNode = NULL;
-//	pPreNode = new struct LoquatRTreeNode *[1];
-//	pPreNode[0] = (*loquatTree)->rootNode;
-//	if( pPreNode[0] == NULL )
-//	{
-//		delete [] pPreNode;
-//		return 1;
-//	}
-//	else if( pPreNode[0]->nodetype == LEAF_NODE )
-//	{
-//		HarvestOneLeafNode(&pPreNode[0]);
-//		//delete pPreNode[0]; // 释放指针指向的空间
-//		delete [] pPreNode; // 释放指针 
-//		return 1;
-//	}
-//
-//	delete [] pPreNode;
-//	pPreNode = NULL;
-//
-//	while( 1 )
-//	{
-//		pPreNode = new struct LoquatRTreeNode *[1];
-//		pPreNode[0] = (*loquatTree)->rootNode;
-//
-//		for( i=1; i <= depth; i++ )
-//		{
-//			maxNodeNumThisDepth = (int)powf(2.f, (float)i);
-//			if( pCurNode !=NULL )
-//				delete []pCurNode;
-//			pCurNode = new struct LoquatRTreeNode *[maxNodeNumThisDepth];
-//			for ( j=0; j<maxNodeNumThisDepth/2; j++ ) 
-//			{
-//				if( pPreNode[j] == NULL )
-//				{
-//					pCurNode[j*2] = NULL;
-//					pCurNode[j*2+1] = NULL;
-//				}
-//				else if( pPreNode[j]->nodetype == LEAF_NODE )
-//				{
-//					pCurNode[j*2] = NULL;
-//					pCurNode[j*2+1] = NULL;
-//				}
-//				else{
-//					pCurNode[j*2] = pPreNode[j]->pSubNode[0];
-//					pCurNode[j*2+1] = pPreNode[j]->pSubNode[1];
-//				}
-//			}
-//
-//			delete []pPreNode;
-//			pPreNode = new struct LoquatRTreeNode *[maxNodeNumThisDepth];
-//			for( j=0; j<maxNodeNumThisDepth; j++ )
-//			{
-//				pPreNode[j] = pCurNode[j];
-//			}
-//			//delete []pCurNode;
-//		}
-//
-//		for( j=0; j<maxNodeNumThisDepth; j++ )
-//		{
-//			if( pCurNode[j] != NULL )
-//			{
-//				HarvestOneLeafNode(&pCurNode[j]);
-//				//delete pCurNode[j];
-//			}
-//		}
-//
-//		delete [] pPreNode;	
-//		pPreNode = NULL;
-//		delete [] pCurNode;
-//		pCurNode =NULL;
-//
-//		depth--;
-//
-//		if( depth<=0  )
-//			break;
-//	}
-//
-//	HarvestOneLeafNode(&((*loquatTree)->rootNode));
-//
-//	delete *loquatTree;
-//	*loquatTree = NULL;
-//
-//	return 1;
-//}
-
-//int HarvestOneRLoquatTree2(struct LoquatRTreeStruct **loquatTree)
-//{
-//	if( (*loquatTree) == NULL )
-//		return 1;
-//
-//	if( (*loquatTree)->inbag_samples_index != NULL )
-//	{
-//		delete [] (*loquatTree)->inbag_samples_index;
-//		(*loquatTree)->inbag_samples_index = NULL;
-//		(*loquatTree)->inbag_samples_num = 0;
-//	}
-//
-//	if( (*loquatTree)->outofbag_samples_index != NULL )
-//	{
-//		delete [] (*loquatTree)->outofbag_samples_index;
-//		(*loquatTree)->outofbag_samples_index = NULL;
-//		(*loquatTree)->outofbag_samples_num = 0;
-//	}
-//
-//	// 层序遍历
-//	deque<LoquatRTreeNode *> dq;
-//	dq.push_back((*loquatTree)->rootNode);
-//	LoquatRTreeNode *tmpNode = NULL;
-//	while(!dq.empty())
-//	{
-//		tmpNode = dq.front();
-//		if( tmpNode->pSubNode[0] )
-//			dq.push_back(tmpNode->pSubNode[0]);
-//		if( tmpNode->pSubNode[1] )
-//			dq.push_back(tmpNode->pSubNode[1]);
-//		dq.pop_front();
-//		HarvestOneLeafNode(&tmpNode);
-//	}
-//
-//	*loquatTree = NULL;
-//
-//	return 1;
-//}
 
 int ReleaseRegressionForest(LoquatRForest **loquatForest)
 {
