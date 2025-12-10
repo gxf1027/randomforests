@@ -12,7 +12,6 @@
 #include <map>
 #include <unordered_map>
 #include "Imputation.h"
-#include "Proximity.h"
 #include "omp.h"
 
 
