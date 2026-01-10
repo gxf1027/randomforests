@@ -2537,7 +2537,7 @@ int TrainRandomForestRegressor(float **data, float *target, RandomRForests_info 
 	
 	}
 
-	omp_set_threads(jobs);
+	omp_set_num_threads(jobs);
 	int growed_num = 0;
 
 #pragma omp parallel for 
