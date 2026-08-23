@@ -2421,7 +2421,7 @@ int ClassificationForestOrigProximity(LoquatCForest* forest, float** data, const
 
 	int  rv = _ClassificationForestOrigProximity(forest, data[index_i], leafMatrix, proximities);
 
-	const int samples_num = forest->RFinfo.ntrees;
+	const int samples_num = forest->RFinfo.datainfo.samples_num;
 	for (int n = 0; n < samples_num; n++)
 		delete[] leafMatrix[n];
 	delete[] leafMatrix;
