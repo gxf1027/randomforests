@@ -2423,7 +2423,7 @@ int GrowRandomizedRLoquatTreeRecursively(float** data, float* target, const Rand
 const struct LoquatRTreeNode *GetArrivedLeafNode(LoquatRForest *RF, int tree_index, float *data)
 {
 	int total_tree_num = RF->RFinfo.ntrees;
-	if( tree_index < 0 && tree_index >= total_tree_num )
+	if( tree_index < 0 || tree_index >= total_tree_num )
 		return NULL;
 
 	const int max_depth_index = RF->loquatTrees[tree_index]->depth;
